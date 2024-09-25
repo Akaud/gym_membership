@@ -144,7 +144,7 @@ const Register = ({ toggleForm }) => {
               />{" "}
               Member
             </label>
-            <b>
+            <br/>
             <label className="radio">
               <input
                 type="radio"
