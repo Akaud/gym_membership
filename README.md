@@ -15,7 +15,7 @@ Automatically fixes security vulnerabilities found by npm audit
 ```bash
 npm audit fix 
 ```
-# Don`t forget to crate .env file for environmental variables
+# Don`t forget to create .env file for environmental variables
 # How to run servers
 ## Backend
 First of all go to backend directory
