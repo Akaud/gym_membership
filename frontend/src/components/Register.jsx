@@ -138,8 +138,8 @@ const Register = ({ toggleForm }) => {
               <input
                 type="radio"
                 name="role"
-                value="student"
-                checked={Role === "student"}
+                value="member"
+                checked={Role === "member"}
                 onChange={(e) => setRole(e.target.value)}
               />{" "}
               Member
@@ -149,8 +149,8 @@ const Register = ({ toggleForm }) => {
               <input
                 type="radio"
                 name="role"
-                value="teacher"
-                checked={Role === "teacher"}
+                value="trainer"
+                checked={Role === "trainer"}
                 onChange={(e) => setRole(e.target.value)}
               />{" "}
               Trainer

@@ -6,7 +6,7 @@ const Login = ({ toggleForm }) => {
   const [Username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [, setToken] = useContext(UserContext);
+  const [, , setToken] = useContext(UserContext); // Fix here: correctly destructuring token, userRole, and setToken
 
   const submitLogin = async () => {
     const requestOptions = {

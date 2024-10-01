@@ -1,0 +1,99 @@
+/* Existing styles */
+.day {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.day-name {
+  display: block;
+  font-weight: bold;
+  font-size: 1.2rem;
+}
+
+.day-date {
+  display: block;
+  font-size: 1rem;
+  color: gray;
+}
+
+.day-card {
+  background-color: #f9f9f9;
+  padding: 15px;
+  border-radius: 8px;
+  margin: 10px;
+  box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.columns.is-multiline {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.current-day {
+  background-color: #ffeb3b;
+  border: 2px solid #fbc02d;
+}
+
+/* New styles */
+.day-events {
+  margin-top: 10px;
+}
+
+.event-card {
+  background-color: white;
+  border: 1px solid #ddd;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 10px;
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column; /* Keep items in a column */
+  justify-content: center; /* Center vertically */
+  align-items: center; /* Center horizontally */
+  text-align: center; /* Center text within the card */
+}
+
+/* Highlight for public events */
+.public-event {
+  background-color: #98e4f4; /* Light blue background for public events */
+  border: 1px solid #b2ebf2; /* Border color for public events */
+}
+
+/* Highlight for private events */
+.private-event {
+  background-color: #fff3e0; /* Light orange background for private events */
+  border: 1px solid #ffe0b2; /* Border color for private events */
+}
+
+.event-name {
+  font-weight: bold;
+}
+
+.event-time {
+  font-size: 0.9em; /* Slightly smaller font for time */
+  color: gray; /* Optional: change color for differentiation */
+  margin-top: 5px; /* Space between name and time */
+}
+
+.event-actions {
+  display: flex;
+  gap: 5px;
+}
+
+.event-actions .button {
+  font-size: 0.75rem; /* Make the buttons smaller to fit inside the event cards */
+}
+
+/* Tooltip styles */
+.tooltip {
+  position: absolute; /* Positioning for tooltip */
+  background-color: #fff; /* Background color */
+  border: 1px solid #ccc; /* Border */
+  border-radius: 4px; /* Rounded corners */
+  padding: 10px; /* Inner padding */
+  box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.2); /* Shadow effect */
+  z-index: 100; /* Above other elements */
+  white-space: nowrap; /* Prevent text wrapping */
+  transform: translate(-50%, -100%); /* Position above the cursor */
+}

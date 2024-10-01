@@ -4,6 +4,7 @@ export const UserContext = createContext();
 
 export const UserProvider = (props) => {
     const [token, setToken] = useState(localStorage.getItem("token"));
+    const [userRole, setUserRole] = useState(null);  // New state for storing the user role
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -15,15 +16,22 @@ export const UserProvider = (props) => {
                 }
             };
             const response = await fetch(`http://localhost:8000/verify-token/${token}`, requestOptions);
-            if (!response.ok) {
+            if (response.ok) {
+                const data = await response.json();
+                setUserRole(data.role);  // Set the role from the API response
+            } else {
                 setToken(null);
+                setUserRole(null);
             }
             localStorage.setItem("token", token);
         };
-        fetchUser();
+        if (token) {
+            fetchUser();
+        }
     }, [token]);
+
     return (
-        <UserContext.Provider value={[token, setToken]}>
+        <UserContext.Provider value={[token, userRole, setToken]}>
             {props.children}
         </UserContext.Provider>
     );

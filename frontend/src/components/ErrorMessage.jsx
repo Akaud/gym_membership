@@ -1,7 +1,21 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 
 const ErrorMessage = ({ message }) => {
-  if (!message) return null;
+  const [isVisible, setIsVisible] = useState(true);
+
+  useEffect(() => {
+    if (message) {
+      setIsVisible(true);
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(false);
+    }
+  }, [message]);
+
+  if (!isVisible) return null;
 
   return (
     <div className="notification is-danger">
@@ -17,6 +31,5 @@ const ErrorMessage = ({ message }) => {
     </div>
   );
 };
-
 
 export default ErrorMessage;

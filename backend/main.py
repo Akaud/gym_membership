@@ -1,5 +1,4 @@
 import os
-
 from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -89,7 +88,7 @@ async def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(
         )
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.username, "role": user.role},  # Include role
         expires_delta=access_token_expires
     )
     return {"access_token": access_token, "token_type": "bearer"}
@@ -107,9 +106,16 @@ def verify_token(token: str = Depends(oauth2_scheme)):
 
 
 @app.get("/verify-token/{token}")
-async def verify_user_token(token: str):
-    verify_token(token=token)
-    return {"message": "Token is valid"}
+async def verify_user_token(token: str, db: Session = Depends(get_db)):
+    # Verify the token and return the user's role
+    payload = verify_token(token=token)
+    username = payload.get("sub")
+
+    user = crud.get_user(db, username=username)
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    return {"message": "Token is valid", "role": user.role,"user_id": user.id}
 
 
 @app.get("/users", response_model=List[schemas.User])
@@ -135,7 +141,48 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
         raise credentials_exception
-    return user
+    return {"user": user,"role":user.role}  # Return user and role
+
+
+# Event Endpoints
+@app.post("/event", response_model=schemas.Event, status_code=status.HTTP_201_CREATED)
+async def create_event(event: schemas.EventCreate, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    return crud.create_event(db=db, event=event, user_id=current_user['user'].id)
+
+
+@app.get("/events", response_model=List[schemas.Event])
+async def list_events(db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    return crud.get_events(db=db, user_id=current_user['user'].id)
+
+
+@app.put("/event/{event_id}", response_model=schemas.Event)
+async def update_event(event_id: int, event: schemas.EventCreate, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    updated_event = crud.update_event(db, event_id, event, current_user['user'].id)
+    if updated_event is None:
+        raise HTTPException(status_code=404, detail="Event not found")
+    return updated_event
+
+
+@app.delete("/event/{event_id}", response_model=dict)
+async def delete_event(event_id: int, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    result = crud.delete_event(db, event_id, current_user['user'].id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Event not found or permission denied")
+    return {"message": "Event deleted successfully"}
+
+
+# Booking Endpoints
+@app.post("/events/{event_id}/book", response_model=schemas.Booking, status_code=status.HTTP_201_CREATED)
+async def book_event(event_id: int, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    return crud.book_event(db=db, event_id=event_id, user_id=current_user['user'].id)
+
+
+@app.delete("/bookings/{booking_id}", response_model=dict)
+async def cancel_booking(booking_id: int, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+    result = crud.cancel_booking(db, booking_id, current_user['user'].id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Booking not found")
+    return {"message": "Booking cancelled successfully"}
 
 
 # Update a user
@@ -154,5 +201,3 @@ async def delete_user(user_id: int, db: db_dependency):
     if not result:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User deleted successfully"}
-
-
