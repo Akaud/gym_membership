@@ -1,3 +1,5 @@
+
+
 /* Existing styles */
 .day {
   text-align: center;
@@ -96,4 +98,103 @@
   z-index: 100; /* Above other elements */
   white-space: nowrap; /* Prevent text wrapping */
   transform: translate(-50%, -100%); /* Position above the cursor */
+}
+
+.card {
+  display: flex;
+  flex-direction: column; /* Make the card's children stack vertically */
+  height: 100%; /* Allow the card to take the full height of its container */
+}
+
+.card-content {
+  flex-grow: 1; /* Make the content area expand to fill the available space */
+}
+
+.card-footer {
+  margin-top: auto; /* Push the footer to the bottom of the card */
+}
+
+
+.modal {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-background {
+  background-color: rgba(0, 0, 0, 0.5); /* Semi-transparent background */
+}
+
+.modal-content {
+  background: white;
+  border-radius: 4px;
+  padding: 20px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+.is-active {
+  display: flex; /* Display the modal */
+}
+
+/* Apply blur effect when modal is open */
+.container {
+  transition: filter 0.3s ease;
+}
+
+.modal.is-active ~ .container {
+  filter: blur(5px); /* Apply blur effect */
+}
+.navbar-center {
+    justify-content: center; /* Center the navbar items */
+    width: 100%;             /* Ensure the navbar stretches across the full width */
+    display: flex;           /* Use flexbox for alignment */
+}
+.navbar-menu {
+  display: flex;
+  justify-content: center; /* Centers the items */
+}
+
+.navbar-center {
+  display: flex;
+  justify-content: center;
+  flex-grow: 1;
+}
+.navbar-item input[type="text"] {
+    max-width: 200px;
+}
+
+.navbar-dropdown {
+    background-color: #fafafa; /* Custom background color for dropdown */
+}
+
+.navbar-item:hover .navbar-dropdown {
+    display: block;
+}
+
+/* styles.css */
+
+/* Make sure the html and body take full height */
+html, body {
+  height: 100%;
+  margin: 0;
+}
+
+/* Make the app-container take full height */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh; /* Full height of viewport */
+}
+
+/* Main content should take up remaining space */
+.columns {
+  flex: 1; /* Allows this to grow and push the footer down */
+}
+
+/* Footer styles */
+.footer {
+  background-color: #00d1b2;
+  color: white;
+  padding: 20px;
+  text-align: center;
 }

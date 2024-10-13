@@ -1,12 +1,15 @@
+from datetime import timedelta
 from typing import Any, List, Type
 
 from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 import models
 import schemas
 from passlib.context import CryptContext
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
 
 # User Management
 def create_user(db: Session, user: schemas.UserCreate):
@@ -124,17 +127,18 @@ def get_events(db: Session, user_id: int) -> list[models.Event]:
         ).all()
 
 
-
 def update_event(db: Session, event_id: int, event_update: schemas.EventCreate, user_id: int):
     db_event = db.query(models.Event).filter(models.Event.id == event_id).first()
 
-    if not db_event or (db_event.creator_id != user_id and db_event.trainer_id != user_id and not db.query(models.User).filter(models.User.id == user_id, models.User.role == "admin").first()):
+    if not db_event or (
+            db_event.creator_id != user_id and db_event.trainer_id != user_id and not db.query(models.User).filter(
+            models.User.id == user_id, models.User.role == "admin").first()):
         return None
 
     db_event.name = event_update.name
     db_event.description = event_update.description
-    db_event.date=event_update.date
-    db_event.time= event_update.time
+    db_event.date = event_update.date
+    db_event.time = event_update.time
     db_event.duration = event_update.duration
     db_event.event_type = event_update.event_type
     db_event.max_participants = event_update.max_participants
@@ -195,3 +199,141 @@ def get_users(db: Session):
     if not users:
         return []
     return users
+
+
+# Create a new membership plan
+def create_membership_plan(db: Session, plan: schemas.MembershipPlanCreate):
+    db_plan = models.MembershipPlan(
+        name=plan.name,
+        description=plan.description,
+        price=plan.price,
+        duration=plan.duration,
+        promotion=plan.promotion
+    )
+    db.add(db_plan)
+    db.commit()
+    db.refresh(db_plan)
+    return db_plan
+
+
+# Get all membership plans
+def get_membership_plans(db: Session):
+    return db.query(models.MembershipPlan).all()
+
+
+# Get a specific membership plan by ID
+def get_membership_plan(db: Session, plan_id: int):
+    return db.query(models.MembershipPlan).filter(models.MembershipPlan.id == plan_id).first()
+
+
+# Update a membership plan
+def update_membership_plan(db: Session, plan_id: int, plan_update: schemas.MembershipPlanCreate):
+    db_plan = db.query(models.MembershipPlan).filter(models.MembershipPlan.id == plan_id).first()
+    if db_plan:
+        db_plan.name = plan_update.name
+        db_plan.description = plan_update.description
+        db_plan.price = plan_update.price
+        db_plan.duration = plan_update.duration
+        db_plan.promotion = plan_update.promotion
+        db.commit()
+        db.refresh(db_plan)
+    return db_plan
+
+
+# Delete a membership plan
+def delete_membership_plan(db: Session, plan_id: int):
+    db_plan = db.query(models.MembershipPlan).filter(models.MembershipPlan.id == plan_id).first()
+    if db_plan:
+        db.delete(db_plan)
+        db.commit()
+    return db_plan
+
+
+# Create a new subscription
+from datetime import timedelta
+import calendar
+
+
+def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
+    try:
+        # Fetch the membership plan
+        membership_plan = db.query(models.MembershipPlan).filter(
+            models.MembershipPlan.id == subscription.membership_plan_id).first()
+
+        if not membership_plan:
+            raise HTTPException(status_code=404, detail="Membership plan not found")
+
+    except SQLAlchemyError as e:
+        # Handle any database-related errors
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    try:
+        # Calculate end_date based on the plan's duration more accurately
+        start_date = subscription.start_date
+        duration_months = membership_plan.duration
+
+        # Use calendar.monthrange to get the last day of the month
+        end_date = start_date.replace(day=1) + timedelta(
+            days=calendar.monthrange(start_date.year, (start_date.month + duration_months - 1) % 12)[1]
+        )
+
+    except ValueError as e:
+        # Handle any errors in date calculations
+        raise HTTPException(status_code=400, detail=f"Invalid date or duration: {str(e)}")
+
+    try:
+        # Create the subscription
+        db_subscription = models.Subscription(
+            start_date=start_date,
+            end_date=end_date,
+            status="active",  # Automatically set status to "active"
+            membership_plan_id=subscription.membership_plan_id,
+            user_id=subscription.user_id
+        )
+
+        # Add the subscription to the database and commit
+        db.add(db_subscription)
+        db.commit()
+        db.refresh(db_subscription)
+
+    except SQLAlchemyError as e:
+        # Roll back if there's a problem during commit
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Database error while creating subscription: {str(e)}")
+
+    return db_subscription
+
+
+# Get subscription for a user
+def get_subscriptions_for_user(db: Session, user_id: int):
+    return db.query(models.Subscription).filter(models.Subscription.user_id == user_id).all()
+
+
+# Update a subscription (e.g., for renewals)
+def update_subscription(db: Session, subscription_id: int, subscription_update: schemas.SubscriptionCreate):
+    db_subscription = db.query(models.Subscription).filter(models.Subscription.id == subscription_id).first()
+
+    if not db_subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    # Update the fields
+    db_subscription.start_date = subscription_update.start_date
+    db_subscription.end_date = subscription_update.end_date
+    db_subscription.status = subscription_update.status
+
+    db.commit()
+    db.refresh(db_subscription)
+    return db_subscription
+# Delete a subscription (cancel membership)
+def delete_subscription(db: Session, subscription_id: int):
+    db_subscription = db.query(models.Subscription).filter(models.Subscription.id == subscription_id).first()
+
+    if not db_subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    db.delete(db_subscription)
+    db.commit()
+    return db_subscription
+
+def get_subscription_by_id(db: Session, subscription_id: int):
+    return db.query(models.Subscription).filter(models.Subscription.id == subscription_id).first()

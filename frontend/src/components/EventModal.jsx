@@ -221,7 +221,7 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
         </section>
         <footer className="modal-card-foot">
           <button
-              className="button is-success"
+              className="button is-primary"
               onClick={handleSave}
               style={{marginRight: '10px'}} // Add margin to the right
           >

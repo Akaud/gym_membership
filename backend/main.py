@@ -115,7 +115,7 @@ async def verify_user_token(token: str, db: Session = Depends(get_db)):
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
 
-    return {"message": "Token is valid", "role": user.role,"user_id": user.id}
+    return {"message": "Token is valid", "role": user.role, "user_id": user.id}
 
 
 @app.get("/users", response_model=List[schemas.User])
@@ -141,12 +141,18 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
     user = db.query(models.User).filter(models.User.id == user_id).first()
     if user is None:
         raise credentials_exception
-    return {"user": user,"role":user.role}  # Return user and role
+    return {"user": user, "role": user.role}  # Return user and role
+
+
+@app.get("/user/profile", response_model=schemas.User)  # Use the schemas.User reference here
+async def get_user_profile(current_user: models.User = Depends(get_current_user)):
+    return current_user["user"]
 
 
 # Event Endpoints
 @app.post("/event", response_model=schemas.Event, status_code=status.HTTP_201_CREATED)
-async def create_event(event: schemas.EventCreate, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+async def create_event(event: schemas.EventCreate, db: db_dependency,
+                       current_user: models.User = Depends(get_current_user)):
     return crud.create_event(db=db, event=event, user_id=current_user['user'].id)
 
 
@@ -156,7 +162,8 @@ async def list_events(db: db_dependency, current_user: models.User = Depends(get
 
 
 @app.put("/event/{event_id}", response_model=schemas.Event)
-async def update_event(event_id: int, event: schemas.EventCreate, db: db_dependency, current_user: models.User = Depends(get_current_user)):
+async def update_event(event_id: int, event: schemas.EventCreate, db: db_dependency,
+                       current_user: models.User = Depends(get_current_user)):
     updated_event = crud.update_event(db, event_id, event, current_user['user'].id)
     if updated_event is None:
         raise HTTPException(status_code=404, detail="Event not found")
@@ -201,3 +208,79 @@ async def delete_user(user_id: int, db: db_dependency):
     if not result:
         raise HTTPException(status_code=404, detail="User not found")
     return {"message": "User deleted successfully"}
+
+
+# ----------------MEMBERSHIP PLAN SUBSCRIBTION----------------------------------
+
+
+# Create a new membership plan
+@app.post("/membership-plans/", response_model=schemas.MembershipPlan)
+def create_membership_plan(plan: schemas.MembershipPlanCreate, db: Session = Depends(get_db)):
+    return crud.create_membership_plan(db=db, plan=plan)
+
+
+# Get all membership plans
+@app.get("/membership-plans/", response_model=list[schemas.MembershipPlan])
+def get_membership_plans(db: Session = Depends(get_db)):
+    return crud.get_membership_plans(db)
+
+
+# Get a specific membership plan by ID
+@app.get("/membership-plans/{plan_id}", response_model=schemas.MembershipPlan)
+def get_membership_plan(plan_id: int, db: Session = Depends(get_db)):
+    plan = crud.get_membership_plan(db, plan_id)
+    if not plan:
+        raise HTTPException(status_code=404, detail="Membership plan not found")
+    return plan
+
+
+# Update a membership plan
+@app.put("/membership-plans/{plan_id}", response_model=schemas.MembershipPlan)
+def update_membership_plan(plan_id: int, plan_update: schemas.MembershipPlanCreate, db: Session = Depends(get_db)):
+    return crud.update_membership_plan(db, plan_id, plan_update)
+
+
+# Delete a membership plan
+@app.delete("/membership-plans/{plan_id}", response_model=schemas.MembershipPlan)
+def delete_membership_plan(plan_id: int, db: Session = Depends(get_db)):
+    return crud.delete_membership_plan(db, plan_id)
+
+
+# Create a new subscription
+@app.post("/subscriptions/", response_model=schemas.Subscription)
+def create_subscription(
+        subscription: schemas.SubscriptionCreate,  # Explicitly declare the schema
+        db: Session = Depends(get_db)
+):
+    return crud.create_subscription(db, subscription)
+
+
+# Get subscriptions for a specific user
+@app.get("/users/{user_id}/subscriptions")
+def get_user_subscriptions(user_id: int, db: Session = Depends(get_db)):
+    return crud.get_subscriptions_for_user(db, user_id)
+
+
+# Update subscription
+@app.put("/subscriptions/{subscription_id}", response_model=schemas.Subscription)
+def update_subscription(subscription_id: int, subscription: schemas.SubscriptionCreate, db: Session = Depends(get_db)):
+    return crud.update_subscription(db, subscription_id, subscription)
+
+
+# Delete subscription (cancel membership)
+@app.delete("/subscriptions/{subscription_id}", response_model=dict)
+def delete_subscription(subscription_id: int, db: Session = Depends(get_db)):
+    result = crud.delete_subscription(db, subscription_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+    return {"message": "Subscription deleted successfully"}
+
+
+# Get membership status by subscription ID
+@app.get("/subscriptions/{subscription_id}/status")
+def get_membership_status(subscription_id: int, db: Session = Depends(get_db)):
+    subscription = crud.get_subscription_by_id(db, subscription_id)  # Fetch subscription details
+    if not subscription:
+        raise HTTPException(status_code=404, detail="Subscription not found")
+
+    return {"status": subscription.status}  # Return the subscription status

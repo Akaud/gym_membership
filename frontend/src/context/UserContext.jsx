@@ -1,10 +1,11 @@
 import React, { createContext, useEffect, useState } from "react";
 
-export const UserContext = createContext();
+export const UserContext = createContext(undefined);
 
 export const UserProvider = (props) => {
     const [token, setToken] = useState(localStorage.getItem("token"));
     const [userRole, setUserRole] = useState(null);  // New state for storing the user role
+    const [userId, setUserId] = useState(null);
 
     useEffect(() => {
         const fetchUser = async () => {
@@ -19,9 +20,9 @@ export const UserProvider = (props) => {
             if (response.ok) {
                 const data = await response.json();
                 setUserRole(data.role);  // Set the role from the API response
+                setUserId(data.user_id);
             } else {
                 setToken(null);
-                setUserRole(null);
             }
             localStorage.setItem("token", token);
         };
@@ -31,7 +32,7 @@ export const UserProvider = (props) => {
     }, [token]);
 
     return (
-        <UserContext.Provider value={[token, userRole, setToken]}>
+        <UserContext.Provider value={[token, userRole, userId, setToken]}>
             {props.children}
         </UserContext.Provider>
     );

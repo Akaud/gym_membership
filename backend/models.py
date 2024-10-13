@@ -1,6 +1,7 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Date,Time
+from sqlalchemy import Column, Integer, String, ForeignKey, Boolean, Date, Time, Float
 from sqlalchemy.orm import relationship
 from database import Base
+from datetime import date
 
 
 class User(Base):
@@ -19,6 +20,9 @@ class User(Base):
 
     # Events booked by the user (members)
     booked_events = relationship("Booking", back_populates="user")
+
+    # Relationship to Subscriptions
+    subscriptions = relationship("Subscription", back_populates="user")
 
 
 class Event(Base):
@@ -54,3 +58,35 @@ class Booking(Base):
     # Relationships
     user = relationship("User", back_populates="booked_events")
     event = relationship("Event", back_populates="bookings")
+
+
+# MembershipPlan model (as before)
+class MembershipPlan(Base):
+    __tablename__ = "membership_plans"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True)
+    price = Column(Float)
+    description = Column(String, nullable=True)
+    duration = Column(Integer)  # in months
+    promotion = Column(String, nullable=True)
+
+    subscriptions = relationship("Subscription", back_populates="membership_plan")
+
+
+# Subscription model
+class Subscription(Base):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    start_date = Column(Date, default=date.today)
+    end_date = Column(Date)  # Calculated based on duration of the plan
+    status = Column(String, default="active")  # Could be 'active', 'expired', 'canceled'
+
+    # ForeignKey to link Subscription to MembershipPlan
+    membership_plan_id = Column(Integer, ForeignKey("membership_plans.id"))
+    membership_plan = relationship("MembershipPlan", back_populates="subscriptions")
+
+    # ForeignKey to link Subscription to User
+    user_id = Column(Integer, ForeignKey("users.id"))
+    user = relationship("User", back_populates="subscriptions")

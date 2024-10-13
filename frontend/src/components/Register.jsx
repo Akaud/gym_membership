@@ -11,7 +11,7 @@ const Register = ({ toggleForm }) => {
   const [password, setPassword] = useState("");
   const [confirmationPassword, setConfirmationPassword] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
-  const [, setToken] = useContext(UserContext);
+  const [, ,,setToken] = useContext(UserContext);
 
   const submitRegistration = async () => {
     const requestOptions = {
@@ -75,19 +75,23 @@ const Register = ({ toggleForm }) => {
 
   return (
     <div className="column is-half is-offset-one-quarter">
-      <form className="box" onSubmit={handleSubmit}>
+      <form
+          className="box"
+          onSubmit={handleSubmit}
+          style={{border: '2px solid #00d1b2', padding: '20px', borderRadius: '8px'}} // Add border and padding
+      >
         <h1 className="title has-text-centered">Register</h1>
 
         <div className="field">
           <label className="label">Username</label>
           <div className="control">
             <input
-              type="text"
-              placeholder="Enter username"
-              value={Username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="input"
-              required
+                type="text"
+                placeholder="Enter username"
+                value={Username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input"
+                required
             />
           </div>
         </div>
@@ -96,23 +100,23 @@ const Register = ({ toggleForm }) => {
           <div className="control is-expanded">
             <label className="label">Name</label>
             <input
-              type="text"
-              placeholder="Enter name"
-              value={Name}
-              onChange={(e) => setName(e.target.value)}
-              className="input"
-              required
+                type="text"
+                placeholder="Enter name"
+                value={Name}
+                onChange={(e) => setName(e.target.value)}
+                className="input"
+                required
             />
           </div>
           <div className="control is-expanded">
             <label className="label">Surname</label>
             <input
-              type="text"
-              placeholder="Enter surname"
-              value={Surname}
-              onChange={(e) => setSurname(e.target.value)}
-              className="input"
-              required
+                type="text"
+                placeholder="Enter surname"
+                value={Surname}
+                onChange={(e) => setSurname(e.target.value)}
+                className="input"
+                required
             />
           </div>
         </div>
@@ -121,12 +125,12 @@ const Register = ({ toggleForm }) => {
           <label className="label">Email Address</label>
           <div className="control">
             <input
-              type="email"
-              placeholder="Enter email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              required
+                type="email"
+                placeholder="Enter email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input"
+                required
             />
           </div>
         </div>
@@ -136,22 +140,22 @@ const Register = ({ toggleForm }) => {
           <div className="control">
             <label className="radio">
               <input
-                type="radio"
-                name="role"
-                value="member"
-                checked={Role === "member"}
-                onChange={(e) => setRole(e.target.value)}
+                  type="radio"
+                  name="role"
+                  value="member"
+                  checked={Role === "member"}
+                  onChange={(e) => setRole(e.target.value)}
               />{" "}
               Member
             </label>
             <br/>
             <label className="radio">
               <input
-                type="radio"
-                name="role"
-                value="trainer"
-                checked={Role === "trainer"}
-                onChange={(e) => setRole(e.target.value)}
+                  type="radio"
+                  name="role"
+                  value="trainer"
+                  checked={Role === "trainer"}
+                  onChange={(e) => setRole(e.target.value)}
               />{" "}
               Trainer
             </label>
@@ -162,12 +166,12 @@ const Register = ({ toggleForm }) => {
           <label className="label">Password</label>
           <div className="control">
             <input
-              type="password"
-              placeholder="Enter password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-              required
+                type="password"
+                placeholder="Enter password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="input"
+                required
             />
           </div>
         </div>
@@ -176,26 +180,26 @@ const Register = ({ toggleForm }) => {
           <label className="label">Confirm Password</label>
           <div className="control">
             <input
-              type="password"
-              placeholder="Confirm password"
-              value={confirmationPassword}
-              onChange={(e) => setConfirmationPassword(e.target.value)}
-              className="input"
-              required
+                type="password"
+                placeholder="Confirm password"
+                value={confirmationPassword}
+                onChange={(e) => setConfirmationPassword(e.target.value)}
+                className="input"
+                required
             />
           </div>
         </div>
 
-        <ErrorMessage message={errorMessage} />
+        <ErrorMessage message={errorMessage}/>
 
-        <br />
+        <br/>
         <div className="has-text-centered">
           <button className="button is-primary" type="submit">
             Register
           </button>
         </div>
 
-        <br />
+        <br/>
         <div className="has-text-centered">
           <p>
             Already have an account?{" "}

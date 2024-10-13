@@ -1,6 +1,6 @@
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr, field_validator
-from datetime import date,time
+from datetime import date, time
 
 
 # User creation model (used for creating a user, includes password)
@@ -87,6 +87,46 @@ class Booking(BaseModel):
     event_id: int
     user: User  # Include details about the user booking the event
     event: Event  # Include details about the event being booked
+
+    class Config:
+        from_attributes = True
+
+
+# Membership Plan Schema
+class MembershipPlanBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    price: float
+    duration: int  # in months
+
+
+class MembershipPlanCreate(MembershipPlanBase):
+    promotion: Optional[str] = None
+
+
+class MembershipPlan(MembershipPlanBase):
+    id: int
+    promotion: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+# Subscription Schema
+class SubscriptionBase(BaseModel):
+    start_date: date
+    end_date: date
+    status: str
+
+
+class SubscriptionCreate(SubscriptionBase):
+    membership_plan_id: int
+    user_id: int
+
+
+class Subscription(SubscriptionBase):
+    id: int
+    membership_plan: MembershipPlan
 
     class Config:
         from_attributes = True

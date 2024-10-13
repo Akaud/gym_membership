@@ -5,6 +5,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import {UserProvider} from './context/UserContext';
 
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
 
@@ -14,6 +15,7 @@ root.render(
     </UserProvider>
   </BrowserRouter>,
 );
+
 
 // If you want to start measuring performance in your app, pass a function
 // to log results (for example: reportWebVitals(console.log))

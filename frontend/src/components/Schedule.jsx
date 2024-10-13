@@ -5,7 +5,7 @@ import ErrorMessage from "./ErrorMessage";
 import { UserContext } from "../context/UserContext";
 
 const Schedule = () => {
-  const [token] = useContext(UserContext);
+  const [token,,,] = useContext(UserContext);
   const [events, setEvents] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -122,7 +122,7 @@ const Schedule = () => {
 
   return (
     <div>
-      <h2 className="title">Weekly Schedule</h2>
+      <h2 className="title is-2">Weekly Schedule</h2>
       <div className="columns is-centered">
         <button className="button is-light" onClick={() => setWeekStart(subWeeks(weekStart, 1))}>← Previous Week</button>
         <span className="mx-4">{format(weekStart, 'MMMM yyyy')}</span>
