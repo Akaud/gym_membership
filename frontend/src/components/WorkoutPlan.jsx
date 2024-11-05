@@ -77,10 +77,31 @@ const WorkoutPlans = () => {
     };
 
     const handleAddExerciseToPlan = async (planId) => {
+
         if (!selectedExerciseId) {
-            alert("Please select an exercise to add.");
-            return;
-        }
+        alert("Please select an exercise to add.");
+        return;
+    }
+
+
+    const selectedPlan = workoutPlans.find(plan => plan.id === planId);
+    if (!selectedPlan) {
+        alert("Selected workout plan not found.");
+        return;
+    }
+
+
+    const exerciseExists = Array.isArray(selectedPlan.exercises) &&
+                           selectedPlan.exercises.some(association =>
+                               association.exercise_id === Number(selectedExerciseId)
+                           );
+
+    if (exerciseExists) {
+        alert("This exercise is already in the workout plan.");
+        return;
+    }
+
+
         try {
             await fetch(`http://localhost:8000/workoutplans/${planId}/exercises/${selectedExerciseId}`, {
                 method: 'POST',
@@ -89,10 +110,13 @@ const WorkoutPlans = () => {
                     'Authorization': `Bearer ${token}`,
                 },
             });
+
+            // Refresh the workout plans to reflect the updated data
             await fetchWorkoutPlans();
             setSelectedExerciseId('');
             setSelectedPlanIdForExercise('');
         } catch (error) {
+            alert("Failed to add exercise");
             console.error("Error adding exercise to workout plan", error);
         }
     };
