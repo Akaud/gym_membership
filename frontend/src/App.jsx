@@ -6,6 +6,8 @@ import { UserContext } from "./context/UserContext";
 import Schedule from './components/Schedule';
 import MembershipPlans from './components/MembershipPlans';  // Component for Admin
 import Subscriptions from './components/Subscriptions';  // Component for Members
+import Exercises from './components/Exercises';
+import WorkoutPlans from "./components/WorkoutPlan";
 import { Route, Routes, Navigate } from "react-router-dom";  // Import routing components
 import Footer from './components/Footer';  // Import the Footer component
 import UserProfile from "./components/UserProfile";
@@ -129,6 +131,8 @@ const App = () => {
                               {/* Redirect to schedule if authenticated */}
                               <Route path="/profile" element={<UserProfile/>}/>
                               <Route path="*" element={<Navigate to="/schedule"/>}/>
+                              <Route path="/exercises" element={<Exercises />} />
+                              <Route path="/workoutplans" element={<WorkoutPlans />} />
                           </>
                       )}
                   </Routes>

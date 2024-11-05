@@ -3,12 +3,12 @@ from fastapi import FastAPI, HTTPException, Depends, status
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta, timezone, time
 from passlib.context import CryptContext
 
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
-from typing import Annotated, List
+from typing import Annotated, List, Optional
 
 import crud
 import models
@@ -284,3 +284,111 @@ def get_membership_status(subscription_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Subscription not found")
 
     return {"status": subscription.status}  # Return the subscription status
+
+#--------------------------------Workouts------------------------------------
+
+@app.get("/workoutplans/", response_model=list[schemas.WorkoutPlan])
+def read_workout_plans(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+    workout_plans = crud.get_workout_plans(db, user_id=current_user['user'].id, skip=skip, limit=limit)
+    return workout_plans
+
+@app.post("/workoutplans/", response_model=schemas.WorkoutPlan)
+async def create_workout_plan(
+    workoutplan: schemas.WorkoutPlanCreate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    db_workoutplan = crud.create_workout_plan(db=db, workoutplan=workoutplan, user_id=current_user['user'].id)
+    return db_workoutplan
+
+@app.get("/workoutplans/{workout_plan_id}", response_model=schemas.WorkoutPlan)
+def read_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
+    workout_plan = crud.get_workout_plan(db, workout_plan_id)
+    if workout_plan is None:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    return workout_plan
+
+@app.put("/workoutplans/{workout_plan_id}", response_model=schemas.WorkoutPlan)
+def update_workout_plan(workout_plan_id: int, name: str = None, start_time: str = None, end_time: str = None, duration: int = None, db: Session = Depends(get_db)):
+    workout_plan = crud.update_workout_plan(db, workout_plan_id, name, start_time, end_time, duration)
+    if workout_plan is None:
+        raise HTTPException(status_code=404, detail="Workout plan not found")
+    return workout_plan
+
+
+
+@app.post("/workoutplans/{workout_plan_id}/exercises/{exercise_id}", response_model=schemas.WorkoutPlanExercise)
+def add_exercise_to_workout_plan(
+    workout_plan_id: int,
+    exercise_id: int,
+    repetitions: Optional[int] = None,
+    sets: Optional[int] = None,
+    duration: Optional[int] = None,
+    db: Session = Depends(get_db)
+):
+    return crud.add_exercise_to_workout_plan(db, workout_plan_id, exercise_id, repetitions, duration, sets)
+# Delete a workout plan
+@app.delete("/workoutplans/{workout_plan_id}", status_code=204)
+def delete_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
+    workout_plan = db.query(models.Workout_Plan).filter(models.Workout_Plan.id == workout_plan_id).first()
+    if not workout_plan:
+        raise HTTPException(status_code=404, detail="Workout Plan not found")
+
+    db.delete(workout_plan)
+    db.commit()
+
+    return {"message": "Workout plan deleted"}
+
+# Remove an exercise from a workout plan
+@app.delete("/workoutplans/{workout_plan_id}/exercises/{exercise_id}", status_code=204)
+def remove_exercise_from_workout_plan(workout_plan_id: int, exercise_id: int, db: Session = Depends(get_db)):
+    association = (
+        db.query(models.Workout_Plan_Exercise)
+        .filter(models.Workout_Plan_Exercise.workout_plan_id == workout_plan_id,
+                models.Workout_Plan_Exercise.exercise_id == exercise_id)
+        .first()
+    )
+    if not association:
+        raise HTTPException(status_code=404, detail="Exercise not found in workout plan")
+    db.delete(association)
+    db.commit()
+    return {"message": "Exercise removed from workout plan"}
+
+
+#--------------------------------Exercises-----------------------------------
+@app.get("/exercises/", response_model=list[schemas.Exercise])
+async def read_exercises(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
+    exercises = crud.get_exercises(db, skip=skip, limit=limit)
+    return exercises
+
+@app.post("/exercises/", response_model=schemas.Exercise)
+async def add_exercise(exercise: schemas.ExerciseCreate, db: Session = Depends(get_db)):
+    return crud.create_exercise(db=db, exercise=exercise)
+
+@app.put("/exercises/{exercise_id}", response_model=schemas.Exercise)
+def update_exercise(exercise_id: int, name: str = None, description: str = None, duration: int = None, sets: int = None, reps: int = None, muscles: str = None, db: Session = Depends(get_db)):
+    exercise = crud.update_exercise(db, exercise_id, name, description, duration, sets, reps, muscles)
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    return exercise
+
+
+@app.delete("/exercises/{exercise_id}", response_model=schemas.Exercise)
+def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
+    # remove all associations with workout plans
+    associations = db.query(models.Workout_Plan_Exercise).filter(
+        models.Workout_Plan_Exercise.exercise_id == exercise_id).all()
+
+    for association in associations:
+        db.delete(association)
+    db.commit()
+
+    # Now delete the exercise itself
+    exercise = db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
+    if exercise is None:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    db.delete(exercise)
+    db.commit()
+
+    return exercise

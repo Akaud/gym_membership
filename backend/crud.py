@@ -1,9 +1,10 @@
-from datetime import timedelta
-from typing import Any, List, Type
+
+from datetime import timedelta, time
+from typing import Any, List, Type, Optional
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 import models
 import schemas
 from passlib.context import CryptContext
@@ -337,3 +338,146 @@ def delete_subscription(db: Session, subscription_id: int):
 
 def get_subscription_by_id(db: Session, subscription_id: int):
     return db.query(models.Subscription).filter(models.Subscription.id == subscription_id).first()
+
+
+# Exercises
+def get_exercises(db: Session, skip: int = 0, limit: int = 10):
+    return db.query(models.Exercise).offset(skip).limit(limit).all()
+
+def create_exercise(db: Session, exercise: schemas.ExerciseCreate):
+    exercise = models.Exercise(
+        name=exercise.name,
+        description=exercise.description,
+        duration=exercise.duration,
+        sets=exercise.sets,
+        reps=exercise.reps,
+        muscles=exercise.muscles
+    )
+    db.add(exercise)
+    db.commit()
+    db.refresh(exercise)
+    return exercise
+
+def get_exercise(db: Session, exercise_id: int):
+    return db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
+
+
+def update_exercise(db: Session, exercise_id: int, name: str = None, description: str = None, duration: int = None,
+                    sets: int = None, reps: int = None, muscles: str = None):
+    exercise = db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
+    if exercise:
+        if name is not None:
+            exercise.name = name
+        if description is not None:
+            exercise.description = description
+        if duration is not None:
+            exercise.duration = duration
+        if sets is not None:
+            exercise.sets = sets
+        if reps is not None:
+            exercise.reps = reps
+        if muscles is not None:
+            exercise.muscles = muscles
+
+        db.commit()
+        db.refresh(exercise)
+    return exercise
+
+
+def delete_exercise(db: Session, exercise_id: int):
+    exercise = db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
+    if exercise:
+        db.delete(exercise)
+        db.commit()
+    return exercise
+
+# Workout plans
+def create_workout_plan(db: Session, workoutplan: schemas.WorkoutPlanCreate, user_id: int):
+    workoutplan = models.Workout_Plan(
+        name=workoutplan.name,
+        start_time=workoutplan.start_time,
+        end_time=workoutplan.end_time,
+        duration=workoutplan.duration,
+        user_id=user_id
+    )
+    db.add(workoutplan)
+    db.commit()
+    db.refresh(workoutplan)
+    return workoutplan
+
+
+def get_workout_plan(db: Session, workout_plan_id: int):
+    return db.query(models.Workout_Plan).filter(models.Workout_Plan.id == workout_plan_id).first()
+
+
+def get_workout_plans(db: Session, user_id: int, skip: int = 0, limit: int = 100):
+    return (
+        db.query(models.Workout_Plan)
+        .filter(models.Workout_Plan.user_id == user_id)
+        .options(joinedload(models.Workout_Plan.exercises).joinedload(models.Workout_Plan_Exercise.exercise))
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+
+def update_workout_plan(db: Session, workout_plan_id: int, name: str = None, start_time: str = None,
+                        end_time: str = None, duration: int = None):
+    workout_plan = db.query(models.Workout_Plan).filter(models.Workout_Plan.id == workout_plan_id).first()
+    if workout_plan:
+        if name is not None:
+            workout_plan.name = name
+        if start_time is not None:
+            workout_plan.start_time = start_time
+        if end_time is not None:
+            workout_plan.end_time = end_time
+        if duration is not None:
+            workout_plan.duration = duration
+
+        db.commit()
+        db.refresh(workout_plan)
+    return workout_plan
+
+
+def delete_workout_plan(db: Session, workout_plan_id: int):
+    workout_plan = db.query(models.Workout_Plan).filter(models.Workout_Plan.id == workout_plan_id).first()
+    if workout_plan:
+        db.delete(workout_plan)
+        db.commit()
+    return workout_plan
+
+
+# Workout Plan Exercise associations
+
+def add_exercise_to_workout_plan(
+    db: Session,
+    workout_plan_id: int,
+    exercise_id: int,
+    repetitions: Optional[int] = None,
+    duration: Optional[int] = None,
+    sets: Optional[int] = None
+):
+    association = models.Workout_Plan_Exercise(
+        workout_plan_id=workout_plan_id,
+        exercise_id=exercise_id,
+        repetitions=repetitions,  # Can be None
+        duration=duration,        # Can be None
+        sets=sets                 # Can be None
+    )
+    db.add(association)
+    db.commit()
+    db.refresh(association)
+    return association
+
+
+def remove_exercise_from_workout_plan(db: Session, workout_plan_id: int, exercise_id: int):
+    association = db.query(models.Workout_Plan_Exercise).filter(
+        models.Workout_Plan_Exercise.workout_plan_id == workout_plan_id,
+        models.Workout_Plan_Exercise.exercise_id == exercise_id
+    ).first()
+
+    if association:
+        db.delete(association)
+        db.commit()
+    return association
+

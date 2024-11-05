@@ -24,6 +24,8 @@ class User(Base):
     # Relationship to Subscriptions
     subscriptions = relationship("Subscription", back_populates="user")
 
+    workout_plans = relationship("Workout_Plan", back_populates="user")
+
 
 class Event(Base):
     __tablename__ = "events"
@@ -90,3 +92,40 @@ class Subscription(Base):
     # ForeignKey to link Subscription to User
     user_id = Column(Integer, ForeignKey("users.id"))
     user = relationship("User", back_populates="subscriptions")
+
+
+class Exercise(Base):
+    __tablename__ = "exercises"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, index=True, nullable=False)
+    description = Column(String, nullable=True)
+    duration = Column(Integer, nullable=True)
+    sets = Column(Integer, nullable=True)
+    reps = Column(Integer, nullable=True)
+    muscles = Column(String, nullable=True)
+    workout_plans = relationship("Workout_Plan_Exercise", back_populates="exercise")
+
+
+class Workout_Plan(Base):
+    __tablename__ = "workout_plans"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)
+    start_time = Column(Time, nullable=True)
+    end_time = Column(Time, nullable=True)
+    duration = Column(Integer, nullable=True)
+
+    exercises = relationship("Workout_Plan_Exercise", back_populates="workout_plan", cascade="all, delete-orphan")
+
+    user_id = Column(Integer, ForeignKey('users.id'))
+    user = relationship("User", back_populates="workout_plans")
+
+class Workout_Plan_Exercise(Base):
+    __tablename__ = "workout_plan_exercises"
+    workout_plan_id = Column(Integer, ForeignKey('workout_plans.id'), primary_key=True)
+    exercise_id = Column(Integer, ForeignKey('exercises.id'), primary_key=True)
+    duration = Column(Integer, nullable=True)
+    repetitions = Column(Integer, nullable=True)
+    sets = Column(Integer, nullable=True)
+
+    workout_plan = relationship("Workout_Plan", back_populates="exercises")
+    exercise = relationship("Exercise", back_populates="workout_plans")

@@ -130,3 +130,56 @@ class Subscription(SubscriptionBase):
 
     class Config:
         from_attributes = True
+
+
+# Base schema for Exercise
+class ExerciseBase(BaseModel):
+    name: str
+    description: Optional[str] = None
+    duration: Optional[int] = None
+    sets: Optional[int] = None
+    reps: Optional[int] = None
+    muscles: Optional[str] = None
+
+class ExerciseCreate(ExerciseBase):
+    pass
+
+class Exercise(ExerciseBase):
+    id: int
+
+    class Config:
+        orm_mode = True
+
+# Association schema between Workout Plan and Exercise
+class WorkoutPlanExerciseBase(BaseModel):
+    workout_plan_id: int
+    exercise_id: int
+    repetitions: Optional[int] = None
+    sets: Optional[int] = None
+
+class WorkoutPlanExerciseCreate(WorkoutPlanExerciseBase):
+    pass
+
+class WorkoutPlanExercise(WorkoutPlanExerciseBase):
+    exercise: Exercise  # Nested exercise details for each association
+
+    class Config:
+        orm_mode = True
+
+# Base schema for Workout Plan
+class WorkoutPlanBase(BaseModel):
+    name: str
+    start_time: Optional[time] = None
+    end_time: Optional[time] = None
+    duration: Optional[int] = None
+
+class WorkoutPlanCreate(WorkoutPlanBase):
+    pass
+
+# Detailed WorkoutPlan schema including related exercises through WorkoutPlanExercise
+class WorkoutPlan(WorkoutPlanBase):
+    id: int
+    exercises: List[WorkoutPlanExercise] = []  # Now correctly referencing WorkoutPlanExercise objects
+
+    class Config:
+        orm_mode = True
