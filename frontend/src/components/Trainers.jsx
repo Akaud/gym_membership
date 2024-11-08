@@ -20,21 +20,24 @@ const Trainers = () => {
 
   const handleCardClick = (index) => setFlipped(flipped === index ? null : index);
 
+  const calculateAverageRating = (ratings) => {
+    return ratings.length ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) : 0;
+  };
+
   const filteredTrainers = trainersList.filter((trainer) => {
     const valueToCheck =
       filterCriteria === "experience"
         ? trainer.experience
         : filterCriteria === "rate"
         ? trainer.rate
-        : trainer.age;
+        : filterCriteria === "age"
+        ? trainer.age
+        : calculateAverageRating(trainer.ratings); // Check average rating if selected
+    
     return valueToCheck >= minValue && valueToCheck <= maxValue;
   });
 
   const handleSeeMore = (id) => navigate(`/trainer-profile/${id}`);
-
-  const calculateAverageRating = (ratings) => {
-    return ratings.length ? (ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length).toFixed(1) : "No ratings";
-  };
 
   return (
     <div className="trainers-container">
@@ -49,6 +52,7 @@ const Trainers = () => {
           <option value="experience">Experience</option>
           <option value="rate">Rate</option>
           <option value="age">Age</option>
+          <option value="averageRating">Average Rating</option> {/* New option */}
         </select>
 
         <label>Min Value:</label>
@@ -81,7 +85,7 @@ const Trainers = () => {
                 <p>Experience: {trainer.experience} years</p>
                 <p>Specification: {trainer.specification}</p>
                 <p>Hourly Rate: ${trainer.rate}</p>
-                <p>Average Rating: {calculateAverageRating(trainer.ratings)} ★</p>
+                <p>Average Rating: {calculateAverageRating(trainer.ratings).toFixed(1)} ★</p>
                 <button className="see-more-btn" onClick={() => handleSeeMore(trainer.id)}>See More</button>
               </div>
             </div>

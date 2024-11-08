@@ -7,6 +7,13 @@ const TrainerProfile = () => {
   const [comments, setComments] = useState([]);
   const [newComment, setNewComment] = useState("");
   const [newRating, setNewRating] = useState(0);
+  const [showRequestForm, setShowRequestForm] = useState(false);
+  const [requestDescription, setRequestDescription] = useState("");
+  const [requestDate, setRequestDate] = useState("");
+  const [requestStartTime, setRequestStartTime] = useState("");
+  const [requestEndTime, setRequestEndTime] = useState("");
+  const [showMetricsDashboard, setShowMetricsDashboard] = useState(false); // State to toggle metrics dashboard
+
 
   const trainersData = [
     { id: 1, name: "John", surname: "Smith", photo: "/images/john.jpg", age: 30, experience: 5, rate: 50, specification: "Certified Personal Trainer", ratings: [5, 4, 5] },
@@ -28,15 +35,30 @@ const TrainerProfile = () => {
       const updatedRatings = [...trainer.ratings, newRating];
       setTrainer((prev) => ({ ...prev, ratings: updatedRatings }));
       
-      // Only add to comments if there's a text comment
       if (newComment) {
         setComments([...comments, { user: "Anonymous", rating: newRating, text: newComment }]);
       }
 
-      // Reset fields
       setNewComment("");
       setNewRating(0);
     }
+  };
+
+  const handleRequestPrivateTraining = (e) => {
+    e.preventDefault();
+    const requestData = {
+      description: requestDescription,
+      date: requestDate,
+      startTime: requestStartTime,
+      endTime: requestEndTime,
+    };
+    console.log("Private training request:", requestData);
+
+    setRequestDescription("");
+    setRequestDate("");
+    setRequestStartTime("");
+    setRequestEndTime("");
+    setShowRequestForm(false);
   };
 
   const averageRating = trainer?.ratings.length
@@ -57,8 +79,67 @@ const TrainerProfile = () => {
           <p><strong>Specification:</strong> {trainer.specification}</p>
           <p><strong>Hourly Rate:</strong> ${trainer.rate}</p>
           <p><strong>Average Rating:</strong> {averageRating} ★</p>
+          <button onClick={() => setShowRequestForm(!showRequestForm)}>
+            Request Private Training
+          </button>
+          <button onClick={() => setShowMetricsDashboard(!showMetricsDashboard)}>
+            View Metrics Dashboard
+          </button>
+
         </div>
       </div>
+
+      {showRequestForm && (
+        <div className="request-form">
+          <h3>Request Private Training</h3>
+          <form onSubmit={handleRequestPrivateTraining}>
+            <label>Description:</label>
+            <textarea
+              value={requestDescription}
+              onChange={(e) => setRequestDescription(e.target.value)}
+              required
+            />
+
+            <label>Date:</label>
+            <input
+              type="date"
+              value={requestDate}
+              onChange={(e) => setRequestDate(e.target.value)}
+              required
+            />
+
+            <label>Start Time:</label>
+            <input
+              type="time"
+              value={requestStartTime}
+              onChange={(e) => setRequestStartTime(e.target.value)}
+              required
+            />
+
+            <label>End Time:</label>
+            <input
+              type="time"
+              value={requestEndTime}
+              onChange={(e) => setRequestEndTime(e.target.value)}
+              required
+            />
+
+            <button type="submit">Submit Request</button>
+          </form>
+        </div>
+      )}
+
+        {showMetricsDashboard && (
+        <div className="metrics-dashboard-overlay">
+          <div className="metrics-dashboard">
+            <h3>Trainer Metrics</h3>
+            <p>Sessions Conducted: 120</p>
+            <p>Average Session Rating: {averageRating} ★</p>
+            <p>Total Hours Trained: {trainer.experience * 100} hrs</p>
+            <button onClick={() => setShowMetricsDashboard(false)}>Close</button>
+          </div>
+        </div>
+      )}
 
       <div className="comments-section">
         <h3>Comments</h3>
