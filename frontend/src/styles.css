@@ -301,3 +301,129 @@ html, body {
 .submit-button:active {
     transform: translateY(0);
 }
+
+
+/* Container holding all trainer cards */
+.trainers-container {
+  text-align: center;
+  margin: 20px;
+}
+
+.trainers-container h1 {
+  font-weight: bold;
+  color: #333;
+  margin-bottom: 30px;
+  font-size: 2rem;
+}
+
+/* Filter Section */
+.filters {
+  margin-bottom: 20px;
+  padding: 10px;
+  background-color: #f8f8f8;
+  border-radius: 8px;
+}
+
+.filters h3 {
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.filters label {
+  margin-right: 10px;
+}
+
+.filters select {
+  margin: 5px;
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 150px;
+}
+
+.filters select:focus {
+  outline: none;
+  border-color: #007bff;
+}
+
+/* Flexbox to display cards in a row and wrap */
+.trainers-list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 20px;
+}
+
+.trainer-card {
+  width: calc(25% - 20px);
+  height: 300px;
+  box-sizing: border-box;
+  margin-bottom: 20px;
+  perspective: 1000px;
+}
+
+.card-inner {
+  width: 100%;
+  height: 100%;
+  position: relative;
+  transform-style: preserve-3d;
+  transition: transform 0.5s;
+}
+
+.card-inner.flipped {
+  transform: rotateY(180deg);
+}
+
+.card-front,
+.card-back {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  backface-visibility: hidden;
+}
+
+.card-front {
+  background-color: #fff;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  padding: 10px;
+}
+
+.card-back {
+  background-color: #f1f1f1;
+  transform: rotateY(180deg);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.trainer-photo {
+  width: 100%;
+  height: auto;
+  border-radius: 10px;
+}
+
+.card-back h3,
+.card-back p {
+  margin: 5px 0;
+}
+
+.see-more-btn {
+  margin-top: 15px;
+  padding: 10px 20px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.see-more-btn:hover {
+  background-color: #0056b3;
+}
