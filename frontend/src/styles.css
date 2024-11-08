@@ -303,6 +303,7 @@ html, body {
 }
 
 
+
 /* Container holding all trainer cards */
 .trainers-container {
   text-align: center;
@@ -333,7 +334,7 @@ html, body {
   margin-right: 10px;
 }
 
-.filters select {
+.filters input {
   margin: 5px;
   padding: 8px;
   font-size: 1rem;
@@ -342,9 +343,8 @@ html, body {
   width: 150px;
 }
 
-.filters select:focus {
-  outline: none;
-  border-color: #007bff;
+.filters input[type="number"] {
+  width: 120px;
 }
 
 /* Flexbox to display cards in a row and wrap */
@@ -419,11 +419,188 @@ html, body {
   background-color: #007bff;
   color: white;
   border: none;
-  border-radius: 5px;
   cursor: pointer;
-  transition: background-color 0.3s;
+  border-radius: 5px;
+  font-size: 1rem;
 }
 
 .see-more-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Responsiveness */
+@media (max-width: 768px) {
+  .trainer-card {
+    width: calc(50% - 20px); /* 2 per row */
+  }
+}
+
+@media (max-width: 480px) {
+  .trainer-card {
+    width: calc(100% - 20px); /* 1 per row */
+  }
+}
+
+.filters select, .filters input {
+  margin: 5px;
+  padding: 8px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.filters button {
+  margin-top: 10px;
+  padding: 8px 15px;
+  font-size: 1rem;
+  border: none;
+  border-radius: 5px;
+  background-color: #007bff;
+  color: white;
+  cursor: pointer;
+}
+
+.filters button:hover {
+  background-color: #0056b3;
+}
+
+.trainer-profile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  text-align: center;
+}
+
+.profile-main {
+  display: flex;
+  flex-direction: column; /* Stack photo and details vertically */
+  align-items: center; /* Center the content */
+  width: 100%;
+  max-width: 600px; /* Reduce max width for a more compact look */
+  margin-bottom: 30px;
+  gap: 20px;
+}
+
+.trainer-photo-rectangle {
+  width: 180px; /* Make the photo smaller */
+  height: auto;
+  border-radius: 10px;
+}
+
+.profile-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Two columns for labeled details */
+  gap: 15px;
+  font-size: 1.1rem;
+  width: 100%;
+}
+
+.profile-details p {
+  margin: 0;
+  padding: 5px 0;
+  color: #333;
+}
+
+.comments-section {
+  width: 100%;
+  max-width: 600px;
+  margin-top: 20px;
+}
+
+.comments-section h3 {
+  color: #333;
+  font-size: 1.5rem;
+  margin-bottom: 10px;
+}
+
+.comments-list p {
+  padding: 10px;
+  border-bottom: 1px solid #ddd;
+}
+
+.add-comment {
+  margin-top: 20px;
+}
+
+.add-comment textarea {
+  width: 100%;
+  height: 60px;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  resize: none;
+}
+
+.add-comment button {
+  margin-top: 10px;
+  padding: 8px 15px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.add-comment button:hover {
+  background-color: #0056b3;
+}
+
+.rating-input {
+  margin-top: 10px;
+}
+
+.rating-input label {
+  font-weight: bold;
+  margin-right: 10px;
+}
+
+.rating-input select {
+  padding: 5px;
+  font-size: 1rem;
+}
+
+.profile-details p:last-child {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #555;
+}
+
+.add-rating {
+  margin-top: 20px;
+}
+
+.add-rating h4 {
+  font-size: 1.2rem;
+  margin-bottom: 10px;
+}
+
+.add-rating select {
+  margin-right: 10px;
+  padding: 5px;
+  font-size: 1rem;
+}
+
+.add-rating textarea {
+  width: 100%;
+  margin-top: 10px;
+  padding: 10px;
+  font-size: 1rem;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+}
+
+.add-rating button {
+  margin-top: 10px;
+  padding: 8px 15px;
+  background-color: #007bff;
+  color: #fff;
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.add-rating button:hover {
   background-color: #0056b3;
 }

@@ -11,7 +11,8 @@ import WorkoutPlans from "./components/WorkoutPlan";
 import { Route, Routes, Navigate } from "react-router-dom";  // Import routing components
 import Footer from './components/Footer';  // Import the Footer component
 import UserProfile from "./components/UserProfile";
-import Trainers from './components/Trainers';  // Import Trainers component
+import Trainers from './components/Trainers'; // Import Trainers component
+import TrainerProfile from "./components/TrainerProfile"; 
 import './styles.css';
 
 
@@ -135,6 +136,7 @@ const App = () => {
                               <Route path="/exercises" element={<Exercises />} />
                               <Route path="/workoutplans" element={<WorkoutPlans />} />
                               <Route path="/trainers" element={<Trainers />} />
+                              <Route path="/trainer-profile/:id" element={<TrainerProfile />} />
                           </>
                       )}
                   </Routes>
