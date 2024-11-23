@@ -155,10 +155,10 @@ const WorkoutPlans = () => {
 
     return (
         <div className="exercise-container">
-            <h2 className="exercise-title">Workout Plans</h2>
+            <h2 className="title is-2 exercise-title">Workout Plans</h2>
 
             {/* Create New Workout Plan */}
-            <form onSubmit={handleCreateWorkoutPlan} className="exercise-form" style={{ marginBottom: '20px' }}>
+            <form onSubmit={handleCreateWorkoutPlan} className="exercise-form" style={{marginBottom: '20px'}}>
                 <input
                     type="text"
                     placeholder="Plan Name"
@@ -167,26 +167,26 @@ const WorkoutPlans = () => {
                     required
                     className="form-input"
                 />
-                <button type="submit" className="submit-button">Create Workout Plan</button>
+                <button type="submit" className="button is-primary">Create Workout Plan</button>
             </form>
 
             {/* List of Workout Plans */}
             <ul>
                 {Array.isArray(workoutPlans) && workoutPlans.map(plan => (
-                    <li key={plan.id} className="exercise-card" style={{ marginBottom: '20px' }}>
+                    <li key={plan.id} className="exercise-card" style={{marginBottom: '20px'}}>
                         <h3 className="exercise-name">{plan.name}</h3>
 
                         {/* Button to delete the workout plan */}
                         <button
                             onClick={() => handleDeleteWorkoutPlan(plan.id)}
-                            className="remove-button"
+                            className="button is-danger"
                         >
                             Delete Plan
                         </button>
-
+                        <br/><br/>
                         {/* Exercises in the workout plan */}
                         <ul>
-                            {plan.exercises && plan.exercises.map(({ exercise, duration, sets, repetitions }) => (
+                            {plan.exercises && plan.exercises.map(({exercise, duration, sets, repetitions}) => (
                                 <li key={exercise.id} className="event-card">
                                     <span className="event-name">{exercise.name}</span>
                                     <span className="exercise-description">{exercise.description}</span>
@@ -195,7 +195,7 @@ const WorkoutPlans = () => {
                                     </span>
                                     <button
                                         onClick={() => handleRemoveExerciseFromPlan(plan.id, exercise.id)}
-                                        className="remove-button"
+                                        className="button is-danger is-small cancel-button"
                                     >
                                         Remove
                                     </button>

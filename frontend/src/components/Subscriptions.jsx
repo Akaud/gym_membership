@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { UserContext } from "../context/UserContext";
+import { useLocation } from 'react-router-dom';
 
 const Subscriptions = () => {
     const [token, userRole,,] = useContext(UserContext);
@@ -14,43 +15,89 @@ const Subscriptions = () => {
         membership_plan_id: '',
         start_date: '',
     });
+    const location = useLocation();
+    const selectedPlanId = location.state?.selectedPlanId || '';
     const [membershipId, setMembershipId] = useState('');
     const [membershipStatus, setMembershipStatus] = useState(null);
     const [membershipDetails, setMembershipDetails] = useState(null);
+    const [fetchingMembership, setFetchingMembership] = useState(false);
+
 
     useEffect(() => {
         fetchPlans();
         fetchSubscriptions();
     }, [token]);
 
+    useEffect(() => {
+    // Initialize with the selected plan if passed through location.state
+    if (selectedPlanId) {
+        setNewSubscription((prev) => ({
+            ...prev,
+            membership_plan_id: selectedPlanId,
+        }));
+    }
+}, [selectedPlanId]);
+
     const fetchSubscriptions = async () => {
-        setLoading(true);
-        try {
-            const requestOptions = {
-                method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-            };
-            const response1 = await fetch(`http://localhost:8000/verify-token/${token}`, requestOptions);
-            if (response1.ok) {
-                const data1 = await response1.json();
-                setUserId(data1.user_id);
-                const response = await fetch(`http://localhost:8000/users/${data1.user_id}/subscriptions`, requestOptions);
-                if (!response.ok) {
-                    throw new Error('Error fetching subscriptions');
-                }
-                const data = await response.json();
-                setSubscriptions(data);
+    setLoading(true);
+    try {
+        const requestOptions = {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+        };
+
+        // Fetch user and subscriptions
+        const response1 = await fetch(`http://localhost:8000/verify-token/${token}`, requestOptions);
+        if (response1.ok) {
+            const data1 = await response1.json();
+            setUserId(data1.user_id);
+
+            // Fetch subscriptions
+            const response = await fetch(`http://localhost:8000/users/${data1.user_id}/subscriptions`, requestOptions);
+            if (!response.ok) {
+                throw new Error('Error fetching subscriptions');
             }
 
-        } catch (error) {
-            setErrorMessage("Could not fetch subscriptions.");
-        } finally {
-            setLoading(false);
+            const subscriptionsData = await response.json();
+
+            // Fetch membership plans to get durations
+            const plansResponse = await fetch('http://localhost:8000/membership-plans/', requestOptions);
+            if (!plansResponse.ok) {
+                throw new Error('Error fetching membership plans');
+            }
+
+            const plansData = await plansResponse.json();
+
+            // Update subscriptions with computed statuses
+            const updatedSubscriptions = subscriptionsData.map(subscription => {
+                const plan = plansData.find(plan => plan.id === subscription.membership_plan_id);
+                if (!plan) return subscription; // Skip if no matching plan found
+
+                const startDate = new Date(subscription.start_date);
+                const durationMonths = plan.duration; // Duration in months from the plan
+                const endDate = new Date(startDate);
+                endDate.setMonth(endDate.getMonth() + durationMonths);
+
+                const currentDate = new Date();
+
+                return {
+                    ...subscription,
+                    end_date: endDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+                    status: currentDate > endDate ? 'expired' : 'active',
+                };
+            });
+
+            setSubscriptions(updatedSubscriptions);
         }
-    };
+    } catch (error) {
+        setErrorMessage("Could not fetch subscriptions.");
+    } finally {
+        setLoading(false);
+    }
+};
 
     const fetchPlans = async () => {
         try {
@@ -170,36 +217,66 @@ const Subscriptions = () => {
     }
 };
 
-    const checkMembershipStatus = async () => {
-    if (!membershipId) {
-        setMembershipErrorMessage("Please enter a valid membership ID.");
-        return;
-    }
-
+  const fetchMembershipStatusForAdmin = async (id) => {
+    setFetchingMembership(true); // Start loading
     try {
         const requestOptions = {
             method: "GET",
             headers: {
                 "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`, // Include token for authentication
+                Authorization: `Bearer ${token}`,
             },
         };
 
-        // Call the new endpoint to get membership status
-        const response = await fetch(`http://localhost:8000/subscriptions/${membershipId}/status`, requestOptions);
+        const response = await fetch(`http://localhost:8000/subscriptions/${id}/status`, requestOptions);
+
         if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Error fetching membership status: ${errorText}`);
+            if (response.status === 404) {
+                setMembershipErrorMessage("Membership ID does not exist.");
+            } else {
+                setMembershipErrorMessage("An error occurred while fetching membership status.");
+            }
+            setMembershipDetails(null);
+            return;
         }
 
         const data = await response.json();
-        const membershipDetails = subscriptions.find(sub => sub.id === membershipId);
-        setMembershipDetails({ ...membershipDetails, ...data });
-        setMembershipStatus(data.status); // Assuming the response contains a 'status' field
-        setMembershipErrorMessage(''); // Clear the error message on success
+        setMembershipDetails(data || null);
+        setMembershipErrorMessage(""); // Clear error message
     } catch (error) {
-        console.error("Error checking membership status", error);
-        setMembershipErrorMessage(error.message || "Error checking membership status.");
+        console.error("Error fetching membership status:", error);
+        setMembershipErrorMessage("An unexpected error occurred.");
+    } finally {
+        setFetchingMembership(false); // Stop loading
+    }
+};
+
+   const checkMembershipStatus = () => {
+    if (!membershipId) {
+        setMembershipErrorMessage("Please enter a valid membership ID.");
+        setMembershipDetails(null); // Clear any previous details
+        return;
+    }
+
+    if (userRole !== "admin") {
+        // For members, restrict access to only their own memberships
+        const membership = subscriptions.find(
+            (sub) => sub.id === parseInt(membershipId, 10)
+        );
+
+        if (!membership) {
+            setMembershipErrorMessage("You are not authorized to view this membership ID.");
+            setMembershipDetails(null); // Clear any previous details
+            return;
+        }
+
+        // If the membership is found, display its details
+        setMembershipDetails(membership);
+        setMembershipStatus(membership.status); // Assume `status` is part of the subscription
+        setMembershipErrorMessage(""); // Clear any error message
+    } else {
+        // For admins, allow unrestricted access
+        fetchMembershipStatusForAdmin(membershipId);
     }
 };
 
@@ -272,11 +349,11 @@ const Subscriptions = () => {
 
                     <h3 className="title is-3">My Current Subscription</h3>
                     {cancelConfirmationMessage && (
-        <p className="notification mt-3">{cancelConfirmationMessage}</p> // Show confirmation message
-    )}
+                        <p className="notification mt-3">{cancelConfirmationMessage}</p> // Show confirmation message
+                    )}
                     <ul className="list">
                         {subscriptions.map((subscription) => {
-                            const { name, description, price, duration } = getCurrentPlanDetails(subscription);
+                            const {name, description, price, duration} = getCurrentPlanDetails(subscription);
                             return (
                                 <li key={subscription.id} className="box" style={{position: "relative"}}>
                                     <button
@@ -293,45 +370,91 @@ const Subscriptions = () => {
                             );
                         })}
                     </ul>
+
+                    <br/>
+                    <h3 className="title is-3">Check Membership Status</h3>
+                    <div className="box">
+                        <div className="field">
+                            <label className="label">Enter Membership ID</label>
+                            <div className="control">
+                                <input
+                                    className="input"
+                                    type="text"
+                                    value={membershipId}
+                                    onChange={handleMembershipIdChange}
+                                />
+                            </div>
+                        </div>
+
+                        <div className="control">
+                            <button className="button is-primary" onClick={checkMembershipStatus}>
+                                OK
+                            </button>
+                        </div>
+                        {/* Error message for invalid or unauthorized access */}
+                        {membershipErrorMessage && (
+                            <p className="has-text-danger mt-2">{membershipErrorMessage}</p>
+                        )}
+                        {membershipDetails && (
+                            <div className="membership-details">
+                                {subscriptions.map((subscription) => {
+                                    const {name, price, duration} = getCurrentPlanDetails(subscription);
+                                    return (
+                                        <p key={subscription.id}>
+                                            <strong>Plan:</strong> {name} | <strong>Status:</strong>{' '}
+                                            <span
+                                                className={subscription.status === 'active' ? 'has-text-success' : 'has-text-danger'}>
+                        {subscription.status}
+                    </span> | <strong>Duration:</strong> {duration} months | <strong>Start
+                                            Date:</strong> {subscription.start_date} | <strong>End
+                                            Date:</strong> {subscription.end_date}
+                                        </p>
+                                    );
+                                })}
+                            </div>
+                        )}
+                    </div>
                 </>
+
             )}
 
-            <br />
-            <h3 className="title is-3">Check Membership Status</h3>
-            <div className="box">
-                <div className="field">
-                    <label className="label">Enter Membership ID</label>
-                    <div className="control">
-                        <input
-                            className="input"
-                            type="text"
-                            value={membershipId}
-                            onChange={handleMembershipIdChange}
-                        />
-                    </div>
-                </div>
-
+            {userRole === 'admin' && (
+    <>
+        <h3 className="title is-3">Check Membership Status</h3>
+        <div className="box">
+            <div className="field">
+                <label className="label">Enter Membership ID</label>
                 <div className="control">
-                    <button className="button is-primary" onClick={checkMembershipStatus}>
-                        OK
-                    </button>
+                    <input
+                        className="input"
+                        type="text"
+                        value={membershipId}
+                        onChange={handleMembershipIdChange}
+                    />
                 </div>
-                 {membershipErrorMessage && (
-        <p className="error-message">{membershipErrorMessage}</p> // Separate error message for membership check
-    )}
-                {membershipDetails && (
-                    <div className="membership-details">
-                        {subscriptions.map((subscription) => {
-                            const { name, price, duration } = getCurrentPlanDetails(subscription);
-                            return (
-                                <p key={subscription.id}>
-                                    <strong>Plan:</strong> {name} | <strong>Status:</strong> {subscription.status} | <strong>Duration:</strong> {duration} months | <strong>Start Date:</strong> {subscription.start_date} | <strong>End Date:</strong> {subscription.end_date}
-                                </p>
-                            );
-                        })}
-                    </div>
-                )}
             </div>
+
+            <div className="control">
+                <button className="button is-primary" onClick={checkMembershipStatus}>
+                    OK
+                </button>
+            </div>
+            {/* Error message for invalid or unauthorized access */}
+            {membershipErrorMessage && (
+                <p className="has-text-danger mt-2">{membershipErrorMessage}</p>
+            )}
+            {membershipDetails && (
+                <div className="membership-details">
+                    <p><strong>Status: </strong>
+                        <span className={membershipDetails.status === 'active' ? 'has-text-success' : 'has-text-danger'}>
+                            {membershipDetails.status}
+                        </span>
+                    </p>
+                </div>
+            )}
+        </div>
+    </>
+)}
         </div>
     );
 };

@@ -5,10 +5,15 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone, time
 from passlib.context import CryptContext
-
+from apscheduler.schedulers.background import BackgroundScheduler
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, List, Optional
+import sendgrid
+from sendgrid.helpers.mail import Mail, Email, To, Content
+
+from dotenv import load_dotenv
+load_dotenv()
 
 import crud
 import models
@@ -16,7 +21,14 @@ import schemas
 
 app = FastAPI()
 
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
+
+
+SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
+SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL")
+
+sendgrid_client = sendgrid.SendGridAPIClient(SENDGRID_API_KEY)
 
 origins = [
     "http://localhost:3000",
@@ -392,3 +404,4 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return exercise
+

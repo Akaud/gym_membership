@@ -41,7 +41,7 @@ const Trainers = () => {
 
   return (
     <div className="trainers-container">
-      <h1>Meet Our Trainers</h1>
+      <h2 className="title is-2">Meet Our Trainers</h2>
 
       {/* Filter Section */}
       <div className="filters">

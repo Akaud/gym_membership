@@ -151,6 +151,7 @@ const MembershipPlans = () => {
         >
           Create New Plan
         </button>
+        <br/><br/>
       </div>
     )}
       {successMessage && (
@@ -268,14 +269,14 @@ const MembershipPlans = () => {
 
               {/* Subscribe Button - Only visible for "member" role */}
               {userRole === 'member' && (
-                <footer className="card-footer">
-                  <button
-                    className="button is-primary is-fullwidth"
-                    onClick={() => navigate('/subscriptions')}  // Redirect to subscriptions page
-                  >
-                    Subscribe
-                  </button>
-                </footer>
+              <footer className="card-footer">
+                <button
+                  className="button is-primary is-fullwidth"
+                  onClick={() => navigate('/subscriptions', { state: { selectedPlanId: plan.id } })}
+                >
+                  Subscribe
+                </button>
+              </footer>
               )}
 
               {userRole === 'admin' && (
@@ -379,6 +380,13 @@ const MembershipPlans = () => {
                     />
                   </div>
                 </div>
+          {/* Display error message */}
+          {errorMessage && (
+            <div className="notification is-danger mt-3">
+              {errorMessage}
+            </div>
+          )}
+
 
                 <div className="control">
                   <button className="button is-primary" type="button" onClick={savePlan}>

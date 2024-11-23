@@ -257,10 +257,7 @@ html, body {
 }
 
 .exercise-title {
-    font-size: 2em;
-    margin-bottom: 20px;
     text-align: center;
-    color: #333;
 }
 
 .exercise-form {

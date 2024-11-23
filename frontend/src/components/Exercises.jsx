@@ -106,7 +106,7 @@ const Exercises = () => {
 
     return (
         <div className="exercise-container">
-            <h2 className="exercise-title">Exercises</h2>
+            <h2 className="title is-2 exercise-title">Exercises</h2>
 
             {/* Form to add a new exercise, visible only to admins */}
             {userRole === 'admin' && (
@@ -154,7 +154,7 @@ const Exercises = () => {
                         value={muscles}
                         onChange={(e) => setMuscles(e.target.value)}
                     />
-                    <button className="submit-button" type="submit">Add Exercise</button>
+                    <button className="button is-primary" type="submit">Add Exercise</button>
                 </form>
             )}
 
@@ -171,8 +171,8 @@ const Exercises = () => {
                             <p className="exercise-detail">Muscles worked: {exercise.muscles}</p>
                             {/* Remove button, visible only to admins */}
                             {userRole === 'admin' && (
-                                <button className="remove-button" onClick={() => deleteExercise(exercise.id)}>
-                                    Remove
+                                <button className="button is-danger" onClick={() => deleteExercise(exercise.id)}>
+                                    Delete
                                 </button>
                             )}
                         </div>
