@@ -54,8 +54,8 @@ const MembershipPlans = () => {
       setErrorMessage('Plan Name, Price, and Duration are required fields.');
       return false;
     }
-    if (newPlan.price <= 0 || newPlan.duration <= 0) {
-      setErrorMessage('Price and Duration must be greater than zero.');
+    if (newPlan.price <= 0 || newPlan.duration <= 0 || newPlan.duration > 12) {
+      setErrorMessage('Price and Duration must be greater than zero, but max = 12.');
       return false;
     }
     setErrorMessage(''); // Clear any existing error message
@@ -362,7 +362,8 @@ const MembershipPlans = () => {
                       value={newPlan.duration}
                       onChange={handleInputChange}
                       required
-                      min="1" // Minimum value of 1 month
+                      min="1"
+                      max="12"
                     />
                   </div>
                 </div>

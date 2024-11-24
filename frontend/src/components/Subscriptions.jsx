@@ -123,61 +123,90 @@ const Subscriptions = () => {
         }
     };
 
-    const subscribe = async () => {
-        // Check if user already has an active subscription
-        if (subscriptions.length > 0) {
-            setErrorMessage("You already have an active subscription. Please cancel it before subscribing to a new plan.");
-            return;
+ const subscribe = async () => {
+    // Check if user already has an active subscription
+    if (subscriptions.length > 0) {
+        setErrorMessage("You already have an active subscription. Please cancel it before subscribing to a new plan.");
+        return;
+    }
+
+    try {
+        const startDate = new Date(newSubscription.start_date);  // Get start date
+        const durationMonths = 1;  // Assuming 1 month for the subscription
+
+        // Create a new date object for the end date based on start date
+        const endDate = new Date(startDate);
+
+        // Manually calculate the new month after adding the duration in months
+        let newMonth = startDate.getMonth() + durationMonths; // Add 1 month
+        let newYear = startDate.getFullYear();
+
+        // If the new month exceeds 11 (December), reset to January (month 0) and adjust the year
+        if (newMonth > 11) {
+            newMonth = newMonth - 12;  // This will ensure it rolls over to the correct month (0 = January)
+            newYear += 1;  // Increment the year
         }
 
-        try {
-            const startDate = new Date(newSubscription.start_date);
-            const durationMonths = 1;
+        // Set the new year and month correctly
+        endDate.setFullYear(newYear);
+        endDate.setMonth(newMonth);  // This ensures that the month is in the valid 0-11 range for JS Date
 
-            const endDate = new Date(startDate);
-            endDate.setMonth(startDate.getMonth() + durationMonths);
-
-            const formatDate = (date) => {
-                const year = date.getFullYear();
-                const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                const day = date.getDate().toString().padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            };
-
-            const formattedEndDate = formatDate(endDate);
-            const formattedStartDate = formatDate(startDate);
-            const status = "active";
-
-            const requestOptions = {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify({
-                    membership_plan_id: parseInt(newSubscription.membership_plan_id),
-                    user_id: userId,
-                    start_date: formattedStartDate,
-                    end_date: formattedEndDate,
-                    status: status
-                }),
-            };
-
-            const response = await fetch('http://localhost:8000/subscriptions/', requestOptions);
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`Error subscribing to the plan: ${response.status} - ${errorText}`);
-            }
-
-            const data = await response.json();
-            setSubscriptions(prevSubscriptions => [...prevSubscriptions, data]);
-            setNewSubscription({ membership_plan_id: '', start_date: '' });
-            setErrorMessage('Subscribed successfully!');
-            fetchSubscriptions();
-        } catch (error) {
-            setErrorMessage(error.message || "Error subscribing to the plan.");
+        // Check if the end date is invalid after month adjustment
+        if (endDate.getDate() !== startDate.getDate()) {
+            // If the date is invalid, set to the last valid day of the month
+            endDate.setDate(0);
         }
-    };
+
+        // Format the dates as YYYY-MM-DD for backend compatibility
+        const formatDate = (date) => {
+            const year = date.getFullYear();
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');  // Convert 0-based month to 1-based
+            const day = date.getDate().toString().padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const formattedStartDate = formatDate(startDate);
+        const formattedEndDate = formatDate(endDate);
+        const status = "active";
+
+        // Prepare the request
+        const requestOptions = {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+                membership_plan_id: parseInt(newSubscription.membership_plan_id),
+                user_id: userId,
+                start_date: formattedStartDate,
+                end_date: formattedEndDate,
+                status: status
+            }),
+        };
+
+        // Send the subscription request
+        const response = await fetch('http://localhost:8000/subscriptions/', requestOptions);
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Error subscribing to the plan: ${response.status} - ${errorText}`);
+        }
+
+        // Handle success
+        const data = await response.json();
+        setSubscriptions(prevSubscriptions => [...prevSubscriptions, data]);
+        setNewSubscription({ membership_plan_id: '', start_date: '' });
+        setErrorMessage('Subscribed successfully!');
+        fetchSubscriptions();
+    } catch (error) {
+        setErrorMessage(error.message || "Error subscribing to the plan.");
+    }
+};
+
+
+
+
+
 
    const cancelSubscription = async (subscriptionId) => {
     const confirmCancel = window.confirm("Are you sure you want to cancel your current subscription?");
@@ -334,6 +363,7 @@ const Subscriptions = () => {
                                     name="start_date"
                                     value={newSubscription.start_date}
                                     onChange={handleInputChange}
+                                    min={new Date().toISOString().split("T")[0]} // Set today's date as the minimum
                                 />
                             </div>
                         </div>

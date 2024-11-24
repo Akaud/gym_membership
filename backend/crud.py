@@ -254,7 +254,7 @@ def delete_membership_plan(db: Session, plan_id: int):
 from datetime import timedelta
 import calendar
 
-
+# CRUD function for creating the subscription
 def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
     try:
         # Fetch the membership plan
@@ -264,26 +264,21 @@ def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
         if not membership_plan:
             raise HTTPException(status_code=404, detail="Membership plan not found")
 
-    except SQLAlchemyError as e:
-        # Handle any database-related errors
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
-
-    try:
-        # Calculate end_date based on the plan's duration more accurately
+        # Get start_date and duration from the subscription
         start_date = subscription.start_date
         duration_months = membership_plan.duration
 
-        # Use calendar.monthrange to get the last day of the month
-        end_date = start_date.replace(day=1) + timedelta(
-            days=calendar.monthrange(start_date.year, (start_date.month + duration_months - 1) % 12)[1]
-        )
+        # Calculate the end_date based on start_date and duration
+        new_month = start_date.month + duration_months - 1  # Add the duration months
+        new_year = start_date.year + (new_month // 12)  # Adjust for year overflow
+        new_month = new_month % 12 + 1  # Ensure the month is in range 1-12
 
-    except ValueError as e:
-        # Handle any errors in date calculations
-        raise HTTPException(status_code=400, detail=f"Invalid date or duration: {str(e)}")
+        # Set the new year and month to the end date
+        # We set the day to the last valid day of the month after the adjustment
+        _, last_day = calendar.monthrange(new_year, new_month)  # Get last day of the month
+        end_date = start_date.replace(year=new_year, month=new_month, day=1) + timedelta(days=last_day - 1)
 
-    try:
-        # Create the subscription
+        # Create the subscription record
         db_subscription = models.Subscription(
             start_date=start_date,
             end_date=end_date,
@@ -292,18 +287,19 @@ def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
             user_id=subscription.user_id
         )
 
-        # Add the subscription to the database and commit
+        # Add to the database and commit
         db.add(db_subscription)
         db.commit()
         db.refresh(db_subscription)
 
+        return db_subscription
+
     except SQLAlchemyError as e:
-        # Roll back if there's a problem during commit
-        db.rollback()
+        db.rollback()  # Rollback in case of error
         raise HTTPException(status_code=500, detail=f"Database error while creating subscription: {str(e)}")
-
-    return db_subscription
-
+    except ValueError as e:
+        # Handle invalid date values
+        raise HTTPException(status_code=400, detail=f"Invalid date or duration: {str(e)}")
 
 # Get subscription for a user
 def get_subscriptions_for_user(db: Session, user_id: int):

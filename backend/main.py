@@ -9,8 +9,6 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, List, Optional
-import sendgrid
-from sendgrid.helpers.mail import Mail, Email, To, Content
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -24,11 +22,6 @@ app = FastAPI()
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-
-SENDGRID_API_KEY = os.getenv("SENDGRID_API_KEY")
-SENDGRID_FROM_EMAIL = os.getenv("SENDGRID_FROM_EMAIL")
-
-sendgrid_client = sendgrid.SendGridAPIClient(SENDGRID_API_KEY)
 
 origins = [
     "http://localhost:3000",
@@ -261,11 +254,14 @@ def delete_membership_plan(plan_id: int, db: Session = Depends(get_db)):
 # Create a new subscription
 @app.post("/subscriptions/", response_model=schemas.Subscription)
 def create_subscription(
-        subscription: schemas.SubscriptionCreate,  # Explicitly declare the schema
-        db: Session = Depends(get_db)
-):
-    return crud.create_subscription(db, subscription)
-
+        subscription: schemas.SubscriptionCreate,
+        db: Session = Depends(get_db)):
+    try:
+        # Call the CRUD function to create the subscription
+        db_subscription = crud.create_subscription(db, subscription)
+        return db_subscription
+    except HTTPException as e:
+        raise e
 
 # Get subscriptions for a specific user
 @app.get("/users/{user_id}/subscriptions")
