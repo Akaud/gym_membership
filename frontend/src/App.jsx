@@ -17,7 +17,7 @@ import './styles.css';
 
 
 const App = () => {
-  const [token] = useContext(UserContext); // Use userRole from context
+  const [token,userRole] = useContext(UserContext); // Use userRole from context
   const [isLogin, setIsLogin] = useState(true);  // State to toggle between login and register
   const [events, setEvents] = useState([]);  // State to manage events
   const [isActive, setIsActive] = useState(false); // State to manage navbar visibility
@@ -58,54 +58,58 @@ const App = () => {
                                       <span>User Profile</span>
                                   </span>
                               </a>
-                              <a className="navbar-item" href="/membership-plans">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-dollar-sign"></i>
-                    </span>
-                    <span>Membership Plans</span>
-                  </span>
-                              </a>
-                              <a className="navbar-item" href="/subscriptions">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-list-alt"></i>
-                    </span>
-                    <span>Subscriptions</span>
-                  </span>
-                              </a>
+                              {userRole !== 'trainer' && (
+                                <>
+                                    <a className="navbar-item" href="/membership-plans">
+                                        <span className="icon-text">
+                                            <span className="icon">
+                                                <i className="fas fa-dollar-sign"></i>
+                                            </span>
+                                            <span>Membership Plans</span>
+                                        </span>
+                                    </a>
+                                    <a className="navbar-item" href="/subscriptions">
+                                        <span className="icon-text">
+                                            <span className="icon">
+                                                <i className="fas fa-list-alt"></i>
+                                            </span>
+                                            <span>Subscriptions</span>
+                                        </span>
+                                    </a>
+                                </>
+                            )}
                               <a className="navbar-item" href="/schedule">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-calendar-alt"></i>
-                    </span>
-                    <span>Schedule</span>
-                  </span>
+                                  <span className="icon-text">
+                                    <span className="icon">
+                                      <i className="fas fa-calendar-alt"></i>
+                                    </span>
+                                    <span>Schedule</span>
+                                  </span>
                               </a>
 
                               <a className="navbar-item" href="/workoutplans">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-dumbbell"></i>
-                    </span>
-                    <span>Workout Plans</span>
-                  </span>
+                                  <span className="icon-text">
+                                    <span className="icon">
+                                      <i className="fas fa-dumbbell"></i>
+                                    </span>
+                                    <span>Workout Plans</span>
+                                  </span>
                               </a>
                               <a className="navbar-item" href="/exercises">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-running"></i>
-                    </span>
-                    <span>Exercises</span>
-                  </span>
+                                  <span className="icon-text">
+                                    <span className="icon">
+                                      <i className="fas fa-running"></i>
+                                    </span>
+                                    <span>Exercises</span>
+                                  </span>
                               </a>
                               <a className="navbar-item" href="/trainers">
-                  <span className="icon-text">
-                    <span className="icon">
-                      <i className="fas fa-user-tie"></i>
-                    </span>
-                    <span>Trainers</span>
-                  </span>
+                                  <span className="icon-text">
+                                    <span className="icon">
+                                      <i className="fas fa-user-tie"></i>
+                                    </span>
+                                    <span>Trainers</span>
+                                  </span>
                               </a>
                           </div>
                       </div>
@@ -127,8 +131,8 @@ const App = () => {
                       ) : (
                           <>
                               {/* Protected routes */}
-                              <Route path="/membership-plans" element={<MembershipPlans/>}/>
-                              <Route path="/subscriptions" element={<Subscriptions/>}/>
+                              <Route path="/membership-plans" element={userRole !== 'trainer' ? <MembershipPlans/> : <Navigate to="/schedule" />} />
+                              <Route path="/subscriptions" element={userRole !== 'trainer' ? <Subscriptions/> : <Navigate to="/schedule" />} />
                               <Route path="/schedule" element={<Schedule events={events} addEvent={addEvent}/>}/>
                               {/* Redirect to schedule if authenticated */}
                               <Route path="/profile" element={<UserProfile/>}/>

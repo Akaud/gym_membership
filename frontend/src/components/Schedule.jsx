@@ -5,7 +5,7 @@ import ErrorMessage from "./ErrorMessage";
 import { UserContext } from "../context/UserContext";
 
 const Schedule = () => {
-  const [token,,,] = useContext(UserContext);
+  const [token, userRole,, userId,] = useContext(UserContext);
   const [events, setEvents] = useState([]);
   const [errorMessage, setErrorMessage] = useState("");
   const [weekStart, setWeekStart] = useState(startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -13,7 +13,6 @@ const Schedule = () => {
   const [activeModal, setActiveModal] = useState(false);
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedDate, setSelectedDate] = useState(null);
-  const [currentUser, setCurrentUser] = useState(null);
   const [tooltip, setTooltip] = useState({ visible: false, event: null, position: { x: 0, y: 0 } });
 
   useEffect(() => {
@@ -31,11 +30,6 @@ const Schedule = () => {
       },
     };
     try {
-      const userResponse = await fetch(`http://localhost:8000/verify-token/${token}`, requestOptions);
-      if (!userResponse.ok) throw new Error("Failed to fetch user info");
-      const userData = await userResponse.json();
-      setCurrentUser(userData);
-
       const response = await fetch('http://localhost:8000/events', requestOptions);
       if (!response.ok) throw new Error("Failed to fetch events");
       const data = await response.json();
@@ -53,11 +47,16 @@ const Schedule = () => {
     setActiveModal(true);
   };
 
-  const handleUpdateEvent = (event) => {
-    setSelectedDate(event.date);
-    setCurrentEvent(event); // Set current event for update
-    setActiveModal(true);
-  };
+ const handleUpdateEvent = (event) => {
+  // Allow update only if the user is the creator or an admin
+  if (event.creator_id !== userId && userRole !== 'admin') {
+    return;
+  }
+
+  setSelectedDate(event.date);
+  setCurrentEvent(event); // Set current event for update
+  setActiveModal(true);
+};
 
   const handleDeleteEvent = async (eventId) => {
     if (window.confirm('Are you sure you want to delete this event?')) {
@@ -146,12 +145,12 @@ const Schedule = () => {
               <div className="day-events">
                 {events
                     .filter((event) => isSameDay(new Date(event.date), day))
-                    .filter((event) => event.event_type === 'public' || (event.event_type === 'private' && event.creator_id === currentUser.user_id))
+                    .filter((event) => event.event_type === 'public' || (event.event_type === 'private' && event.creator_id === userId))
                     .map((event) => (
                         <div
                             key={event.id}
                             className={`event-card ${event.event_type === 'public' ? 'public-event' : 'private-event'}`}
-                            onClick={() => handleUpdateEvent(event)}
+                            onClick={() => handleUpdateEvent(event)} // Only open the modal for allowed users
                             onMouseEnter={(e) => showTooltip(event, e)} // Show tooltip on hover
                             onMouseLeave={hideTooltip} // Hide tooltip when not hovering
                         >
@@ -175,23 +174,23 @@ const Schedule = () => {
         ))}
       </div>
       {tooltip.visible && (
-      <div className="tooltip" style={{ left: tooltip.position.x, top: tooltip.position.y }}>
-        <h4>{tooltip.event.name}</h4>
-        <p>{tooltip.event.description}</p>
-        <p>{`Date: ${tooltip.event.date}`}</p>
-        <p>{`Time: ${tooltip.event.time}`}</p>
-        <p>{`Duration: ${tooltip.event.duration} min`}</p>
-        <p>{`Participants: ${tooltip.event.max_participants}`}</p>
-        <p><strong>Type:</strong> {tooltip.event.event_type}</p> {/* New line for event type */}
-      </div>
+          <div className="tooltip" style={{left: tooltip.position.x, top: tooltip.position.y}}>
+            <h4>{tooltip.event.name}</h4>
+            <p>{tooltip.event.description}</p>
+            <p>{`Date: ${tooltip.event.date}`}</p>
+            <p>{`Time: ${tooltip.event.time}`}</p>
+            <p>{`Duration: ${tooltip.event.duration} min`}</p>
+            <p>{`Participants: ${tooltip.event.max_participants}`}</p>
+            <p><strong>Type:</strong> {tooltip.event.event_type}</p> {/* New line for event type */}
+          </div>
       )}
       {activeModal && (
-        <EventModal
-          event={currentEvent}
-          selectedDate={selectedDate}
-          handleClose={handleModalClose}
-          handleDeleteEvent={handleDeleteEvent}
-        />
+          <EventModal
+              event={currentEvent}
+              selectedDate={selectedDate}
+              handleClose={handleModalClose}
+              handleDeleteEvent={handleDeleteEvent}
+          />
       )}
     </div>
   );
