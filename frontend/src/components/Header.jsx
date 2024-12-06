@@ -3,48 +3,38 @@ import { UserContext } from "../context/UserContext";
 
 const Header = ({ title }) => {
   const [token, , , , setToken] = useContext(UserContext);
-  const [remainingTime, setRemainingTime] = useState(null);
-
-  // Decode the token to get the expiration time
-  const decodeToken = (token) => {
-    try {
-      const payloadBase64 = token.split(".")[1];
-      const decodedPayload = JSON.parse(atob(payloadBase64));
-      return decodedPayload.exp ? decodedPayload.exp * 1000 : null; // Convert exp to ms
-    } catch (error) {
-      console.error("Failed to decode token:", error);
-      return null;
-    }
-  };
+  const [,setRemainingTime] = useState(null);
 
   useEffect(() => {
-    let intervalId;
+    if (!token) {
+      setRemainingTime(null);
+      return;
+    }
 
-    const updateRemainingTime = () => {
-      const expTime = decodeToken(token);
-      if (expTime) {
-        const currentTime = Date.now();
-        const timeLeft = expTime - currentTime;
-        if (timeLeft > 0) {
-          setRemainingTime(timeLeft);
-        } else {
-          handleLogout(); // Logout when token expires
-        }
-      } else {
-        setRemainingTime(null);
+    const decodeToken = (token) => {
+      try {
+        const payload = JSON.parse(atob(token.split(".")[1]));
+        return payload.exp ? payload.exp * 1000 : null;
+      } catch {
+        console.error("Invalid token format.");
+        return null;
       }
     };
 
-    if (token) {
-      updateRemainingTime(); // Initial calculation
+    const updateRemainingTime = () => {
+      const expTime = decodeToken(token);
+      const timeLeft = expTime - Date.now();
+      setRemainingTime(timeLeft > 0 ? timeLeft : null);
 
-      // Update every second
-      intervalId = setInterval(updateRemainingTime, 1000);
-    } else {
-      setRemainingTime(null);
-    }
+      if (timeLeft <= 0) {
+        handleLogout();
+      }
+    };
 
-    return () => clearInterval(intervalId); // Cleanup on component unmount
+    updateRemainingTime();
+    const intervalId = setInterval(updateRemainingTime, 1000);
+
+    return () => clearInterval(intervalId);
   }, [token]);
 
   const handleLogout = () => {
@@ -52,25 +42,8 @@ const Header = ({ title }) => {
     localStorage.removeItem("token");
   };
 
-  // Helper function to format time remaining in HH:MM:SS
-  const formatTime = (milliseconds) => {
-    const totalSeconds = Math.floor(milliseconds / 1000);
-    const hours = Math.floor(totalSeconds / 3600);
-    const minutes = Math.floor((totalSeconds % 3600) / 60);
-    const seconds = totalSeconds % 60;
-
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-  };
-
   return (
       <header>
-        <div className="has-text-centered m-6">
-          {remainingTime !== null && (
-              <p className="is-size-6 has-text-grey">
-                Token expires in: {formatTime(remainingTime)}
-              </p>
-          )}
-        </div>
         <div style={{
           backgroundColor: '#00d1b2',
           padding: '30px',
@@ -79,7 +52,7 @@ const Header = ({ title }) => {
           flexDirection: 'column',
           alignItems: 'center'
         }}>
-          <h1 className="title" style={{color: 'black', margin: 0}}>{title}</h1> {/* Text color and margin */}
+          <h1 className="title" style={{color: 'black', margin: 0}}>{title}</h1>
           {token && (
               <button className="button" onClick={handleLogout} style={{marginTop: '10px'}}>
                 Logout
@@ -89,5 +62,6 @@ const Header = ({ title }) => {
       </header>
   );
 };
+
 
 export default Header;

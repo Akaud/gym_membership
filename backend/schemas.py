@@ -103,24 +103,19 @@ class Event(BaseModel):
     room_number: Optional[str] = None  # For group classes
     creator_id: int  # User ID who created the event
     trainer_id: Optional[int] = None  # Trainer assigned for personal training
-    participants: List[UserResponse] = []  # List of participants (for public group events)
+    current_participants: int
 
     class Config:
         from_attributes = True
 
 
-# Booking creation model
-class BookingCreate(BaseModel):
-    event_id: int
 
-
-# Booking response model
 class Booking(BaseModel):
     id: int
     user_id: int
     event_id: int
-    user: UserResponse  # Include details about the user booking the event
-    event: Event  # Include details about the event being booked
+    trainer_id:int
+    status:bool
 
     class Config:
         from_attributes = True

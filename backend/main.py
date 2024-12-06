@@ -56,6 +56,13 @@ async def get_user_by_username(username: str, db: db_dependency):
         raise HTTPException(status_code=404, detail="User not found")
     return db_user
 
+@app.get("/user/id/{userid}/", response_model=schemas.UserResponse, tags=["Users"])
+async def get_user_by_id(userid: int, db: db_dependency):
+    db_user = crud.get_user_by_id(db=db, userid=userid)  # Fetch the user from the DB
+    if db_user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+    return db_user
+
 
 @app.post("/register", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED, tags=["Users"])
 async def register_user(user: schemas.UserCreate, db: db_dependency):
@@ -206,18 +213,39 @@ async def delete_event(event_id: int, db: db_dependency, current_user: models.Us
 
 
 # Booking Endpoints
-@app.post("/events/{event_id}/book", response_model=schemas.Booking, status_code=status.HTTP_201_CREATED)
+@app.post("/events/{event_id}/pend", response_model=schemas.Booking, status_code=status.HTTP_201_CREATED)
 async def book_event(event_id: int, db: db_dependency, current_user: models.User = Depends(get_current_user)):
     return crud.book_event(db=db, event_id=event_id, user_id=current_user.id)
 
 
-@app.delete("/bookings/{booking_id}", response_model=dict)
-async def cancel_booking(booking_id: int, db: db_dependency, current_user: models.User = Depends(get_current_user)):
-    result = crud.cancel_booking(db, booking_id, current_user.id)
+@app.patch("/bookings/{booking_id}/accept")
+def update_booking_status_endpoint(
+        booking_id: int, db: Session = Depends(get_db)
+):
+    """
+    Endpoint to update the status of a booking.
+    """
+    return crud.update_booking_status(db, booking_id=booking_id)
+
+
+@app.delete("/bookings/{booking_id}/cancel", response_model=dict)
+async def cancel_booking(booking_id: int, db: db_dependency):
+    result = crud.cancel_booking(db, booking_id)
     if not result:
         raise HTTPException(status_code=404, detail="Booking not found")
     return {"message": "Booking cancelled successfully"}
 
+@app.get("/bookings", response_model=List[schemas.Booking])
+async def get_all_bookings_endpoint(
+    db: db_dependency,
+    event_id: Optional[int] = None,
+    user_id: Optional[int] = None,
+):
+    """
+    Fetch all bookings, with optional filters for event_id, user_id, and trainer_id.
+    """
+    bookings = crud.get_all_bookings(db, event_id=event_id, user_id=user_id)
+    return bookings
 
 # Update a user
 @app.put("/user/{user_id}", response_model=schemas.UserResponse, tags=["Users"])

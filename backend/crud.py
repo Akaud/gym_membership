@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Any, Optional, List
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
@@ -110,6 +110,61 @@ def get_user(db: Session, username: str):
         trainer_details=trainer_details,
     )
 
+def get_user_by_id(db: Session, userid: int):
+    # Retrieve the user from the database
+    db_user = db.query(models.User).filter(models.User.id == userid).first()
+
+    # If user is not found, return None
+    if not db_user:
+        return None
+
+    # Create the common user data (which will be in all roles)
+    user_data = {
+        "id": db_user.id,
+        "username": db_user.username,
+        "hashed_password": db_user.hashed_password,
+        "name": db_user.name,
+        "surname": db_user.surname,
+        "age": db_user.age,
+        "gender": db_user.gender,
+        "email": db_user.email,
+        "phone": db_user.phone,
+        "role": db_user.role,
+    }
+
+    # Initialize the role-specific details
+    member_details = None
+    trainer_details = None
+
+    if db_user.role == "member":
+        # Fetch member-specific details
+        member_data = db.query(models.Member).filter(models.Member.id == userid).first()
+        member_details = schemas.Member(
+            weight=member_data.weight,
+            height=member_data.height,
+            membership_status=member_data.membership_status,
+        )
+
+    elif db_user.role == "trainer":
+        # Fetch trainer-specific details
+        trainer_data = db.query(models.Trainer).filter(models.Trainer.id == userid).first()
+        trainer_details = schemas.Trainer(
+            description=trainer_data.description,
+            experience=trainer_data.experience,
+            specialization=trainer_data.specialization,
+            rating=trainer_data.rating,
+            RPH=trainer_data.RPH,
+            certification=trainer_data.certification,
+            photo=trainer_data.photo,
+        )
+
+
+    # Construct the response, adding role-specific details as appropriate
+    return schemas.UserResponse(
+        **user_data,
+        member_details=member_details,
+        trainer_details=trainer_details,
+    )
 
 def get_user_id(db: Session, username: str) -> Any | None:
     db_user = db.query(models.User).filter(models.User.username == username).first()
@@ -218,24 +273,48 @@ def get_event(db: Session, event_id: int, user_id: int):
         ).first()
 
 
-def get_events(db: Session, user_id: int) -> list[models.Event]:
+def get_events(db: Session, user_id: int) -> List[schemas.Event]:
     # Fetch the user based on their ID
     user = db.query(models.User).filter(models.User.id == user_id).first()
 
     # Admins can view all events
     if user.role == "admin":
-        return db.query(models.Event).all()
+        events = db.query(models.Event).all()
 
     # Trainers can see events they created (public or private)
     elif user.role == "trainer":
-        return db.query(models.Event).filter(models.Event.creator_id == user_id).all()
+        events = db.query(models.Event).filter(models.Event.creator_id == user_id).all()
 
     # Members can see their own private events and all public events
     else:  # For gym members
-        return db.query(models.Event).filter(
+        events = db.query(models.Event).filter(
             (models.Event.creator_id == user_id) |  # Their own events
             (models.Event.event_type == "public")  # All public events
         ).all()
+
+    # Prepare a list of events with current participant count
+    event_data = []
+    for event in events:
+        # Count the bookings where the status is True
+        current_participants = len([booking for booking in event.bookings if booking.status])
+
+        event_info = schemas.Event(
+            id=event.id,
+            name=event.name,
+            description=event.description,
+            date=event.date,
+            time=event.time,
+            duration=event.duration,
+            event_type=event.event_type,
+            is_personal_training=event.is_personal_training,
+            max_participants=event.max_participants,
+            room_number=event.room_number,
+            creator_id=event.creator_id,
+            current_participants=current_participants  # Count the bookings where status is True
+        )
+        event_data.append(event_info)
+
+    return event_data
 
 
 def update_event(db: Session, event_id: int, event_update: schemas.EventCreate, user_id: int):
@@ -276,34 +355,78 @@ def delete_event(db: Session, event_id: int, user_id: int):
 
 # Booking Management
 def book_event(db: Session, event_id: int, user_id: int):
+    """
+    Books an event for a user, ensuring all constraints are met.
+    """
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    if event.max_participants and len(event.bookings) >= event.max_participants:
-        raise HTTPException(status_code=400, detail="Event is fully booked")
+    if event.max_participants is not None:
+        participant_count = db.query(models.Booking).filter(models.Booking.event_id == event_id).count()
+        if participant_count >= event.max_participants:
+            raise HTTPException(status_code=400, detail="Event is fully booked")
 
-    # Create booking
-    db_booking = models.Booking(user_id=user_id, event_id=event_id)
+    existing_booking = db.query(models.Booking).filter(
+        models.Booking.event_id == event_id,
+        models.Booking.user_id == user_id
+    ).first()
+    if existing_booking:
+        raise HTTPException(status_code=400, detail="User has already booked this event")
+
+    db_booking = models.Booking(user_id=user_id, event_id=event_id, trainer_id=event.creator_id, status=False)
     db.add(db_booking)
     db.commit()
     db.refresh(db_booking)
 
     return db_booking
 
-
-def cancel_booking(db: Session, booking_id: int, user_id: int):
-    booking = db.query(models.Booking).filter(models.Booking.id == booking_id,
-                                              models.Booking.user_id == user_id).first()
+def update_booking_status(db: Session, booking_id: int):
+    """
+    Updates the status of a booking to confirm or unconfirm it.
+    """
+    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
 
     if not booking:
-        return None
+        raise HTTPException(status_code=404, detail="Booking not found")
 
+    booking.status = True
+    db.commit()
+    db.refresh(booking)
+
+    return booking
+
+
+def cancel_booking(db: Session, booking_id: int):
+    """
+    Cancels a booking made by a user.
+    """
+    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+    if not booking:
+        return None
     db.delete(booking)
     db.commit()
     return True
 
+
+def get_all_bookings(db: Session, event_id: int = None, user_id: int = None):
+    """
+    Returns all bookings, optionally filtering by event_id, user_id, or trainer_id.
+    This function also includes related Event, User, and Trainer objects.
+    """
+    query = db.query(models.Booking).join(models.Event).join(models.User).join(models.Trainer)
+
+    if event_id:
+        query = query.filter(models.Booking.event_id == event_id)
+
+    if user_id:
+        query = query.filter(models.Booking.user_id == user_id)
+
+
+    bookings = query.all()
+
+    return bookings
 
 def get_users(db: Session):
     # Query all users from the database

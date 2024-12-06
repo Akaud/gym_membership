@@ -1,5 +1,7 @@
 import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from "../context/UserContext";
+import { useNotification } from "../context/NotificationContext";
+
 
 const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => {
   const [token, userRole] = useContext(UserContext);
@@ -13,6 +15,8 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
   const [trainerId, setTrainerId] = useState(event ? event.trainer_id : null);
   const [trainers, setTrainers] = useState([]); // Store the list of trainers
   const [errorMessage, setErrorMessage] = useState('');
+  const { addNotification } = useNotification();
+
   const [eventType, setEventType] = useState(() => {
     if (event) return event.event_type;
     if (userRole === 'member') return 'private';
@@ -110,15 +114,17 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
     try {
       const response = await fetch(url, requestOptions);
       if (!response.ok) throw new Error(`Failed to ${event?.id ? 'update' : 'create'} event`);
+      addNotification(`${event?.id ? 'Updated' : 'Created'} event`, "success");
       handleClose(); // Close modal and refresh events
     } catch (error) {
-      setErrorMessage(`Error: ${error.message}`);
+      addNotification(`Error: ${error.message}`, "error");
     }
   };
 
   const handleDelete = () => {
     if (event?.id) {
       handleDeleteEvent(event.id); // Call the passed delete function with event id
+
       handleClose(); // Close the modal after deletion
     }
   };
@@ -255,7 +261,6 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
                 </div>
               </>
           )}
-
           {eventType !== 'public' && (
               <div className="field is-flex" style={{ gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
                 <div className="field" style={{ flex: 1 }}>
@@ -292,7 +297,6 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
                 )}
               </div>
             )}
-
           {errorMessage && (
               <p className="help is-danger" style={{fontSize: '1.5rem'}}>
                 {errorMessage}

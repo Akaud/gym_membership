@@ -1,5 +1,6 @@
-from sqlalchemy import Column,Integer, String, CheckConstraint, ForeignKey, Boolean, Date, Time, Float
-from sqlalchemy.orm import relationship, validates
+from sqlalchemy import Column, Integer, String, CheckConstraint, ForeignKey, Boolean, Date, Time, Float, \
+    UniqueConstraint
+from sqlalchemy.orm import relationship, validates, Session
 from database import Base
 from datetime import date
 
@@ -59,6 +60,7 @@ class Member(User):
         'polymorphic_identity': 'member',
     }
 
+
 class Trainer(User):
     __tablename__ = "trainers"
     id = Column(Integer, ForeignKey("users.id"), primary_key=True)
@@ -70,9 +72,13 @@ class Trainer(User):
     certification = Column(String(255), nullable=True)
     photo = Column(String(255), nullable=True)
 
+    # Establish the relationship with Booking
+    bookings = relationship('Booking', back_populates='trainer', lazy='dynamic')
+
     __mapper_args__ = {
         'polymorphic_identity': 'trainer',
     }
+
 
 class Admin(User):
     __tablename__ = "admins"
@@ -82,39 +88,60 @@ class Admin(User):
         'polymorphic_identity': 'admin',
     }
 
+
 class Event(Base):
     __tablename__ = "events"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String)
+    name = Column(String(255), nullable=False)
     description = Column(String(255), nullable=True)
-    date = Column(Date)
-    time = Column(Time)
-    duration = Column(Integer)
-    event_type = Column(String)
-    is_personal_training = Column(Boolean, default=False)  # True for personal training sessions
+    date = Column(Date, nullable=False)
+    time = Column(Time, nullable=False)
+    duration = Column(Integer, nullable=False)
+    event_type = Column(String, nullable=False)
+    is_personal_training = Column(Boolean, default=False)
 
-    max_participants = Column(Integer, nullable=True)  # For group events only
-    room_number = Column(String, nullable=True)  # For group events only
+    max_participants = Column(Integer, nullable=True)
+    room_number = Column(String, nullable=True)
 
-    # User who created the event (trainer or admin)
-    creator_id = Column(Integer, ForeignKey("users.id"))
+    creator_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     creator = relationship("User", back_populates="created_events")
 
-    # Participants (for public group events)
-    bookings = relationship("Booking", back_populates="event")
+    bookings = relationship("Booking", back_populates="event", cascade="all, delete-orphan")
+
+    @property
+    def current_participants(self):
+        """
+        Returns the number of current participants in the event.
+        """
+        return len(self.bookings)
+
+    @validates('duration')
+    def validate_duration(self, key, value):
+        """
+        Validates that the duration is between 0 and 99.
+        """
+        if not (0 <= value <= 99):
+            raise ValueError("Duration must be a positive integer between 0 and 99.")
+        return value
 
 
 class Booking(Base):
     __tablename__ = "bookings"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))  # User who booked the event
-    event_id = Column(Integer, ForeignKey("events.id"))  # Booked event
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
+    trainer_id = Column(Integer, ForeignKey("trainers.id"), nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    status = Column(Boolean, default=False, nullable=False)
 
-    # Relationships
-    user = relationship("User", back_populates="booked_events")
     event = relationship("Event", back_populates="bookings")
+    user = relationship("User", back_populates="booked_events")
+    trainer = relationship("Trainer", back_populates="bookings", foreign_keys=[trainer_id])
+
+    __table_args__ = (
+        UniqueConstraint('user_id', 'event_id', name='unique_user_event_booking'),
+    )
 
 
 # MembershipPlan model (as before)
@@ -173,6 +200,7 @@ class Workout_Plan(Base):
 
     user_id = Column(Integer, ForeignKey('users.id'))
     user = relationship("User", back_populates="workout_plans")
+
 
 class Workout_Plan_Exercise(Base):
     __tablename__ = "workout_plan_exercises"

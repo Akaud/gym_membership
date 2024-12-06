@@ -4,6 +4,8 @@ import { BrowserRouter } from 'react-router-dom'; // Import BrowserRouter
 import App from './App';
 import reportWebVitals from './reportWebVitals';
 import {UserProvider} from './context/UserContext';
+import { NotificationProvider } from './context/NotificationContext'; // Import NotificationProvider
+
 
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
@@ -11,7 +13,9 @@ root.render(
 
   <BrowserRouter>
     <UserProvider>
-      <App />
+        <NotificationProvider>
+            <App />
+        </NotificationProvider>
     </UserProvider>
   </BrowserRouter>,
 );
