@@ -287,7 +287,7 @@ const Subscriptions = () => {
         return;
     }
 
-    if (userRole !== "admin") {
+    if (userRole !== "admin" && userRole !== "trainer") {
         // For members, restrict access to only their own memberships
         const membership = subscriptions.find(
             (sub) => sub.id === parseInt(membershipId, 10)
@@ -330,7 +330,7 @@ const Subscriptions = () => {
         <div className="container">
             <h2 className="title is-2">Subscriptions</h2>
             {loading && <p>Loading subscriptions...</p>}
-            {userRole !== 'admin' && (
+           {userRole !== 'admin' && userRole !== 'trainer' && (
                 <>
                     <h3 className="title is-3">Subscribe to a New Plan</h3>
                     <div className="box">
@@ -448,7 +448,7 @@ const Subscriptions = () => {
 
             )}
 
-            {userRole === 'admin' && (
+            {(userRole === 'admin' || userRole === 'trainer') && (
     <>
         <h3 className="title is-3">Check Membership Status</h3>
         <div className="box">
