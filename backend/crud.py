@@ -57,7 +57,6 @@ def create_user(db: Session, user: schemas.UserCreate):
 def get_user(db: Session, username: str):
     # Retrieve the user from the database
     db_user = db.query(models.User).filter(models.User.username == username).first()
-
     # If user is not found, return None
     if not db_user:
         return None

@@ -5,10 +5,14 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from passlib.context import CryptContext
-
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, List, Optional
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+from dotenv import load_dotenv
+
+load_dotenv()
 
 import crud
 import models
@@ -44,7 +48,9 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SENDGRIDAPIKEY = os.environ.get("SENDGRID_API_KEY")
 REFRESH_TOKEN_EXPIRE_DAYS = 10
+
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -304,10 +310,62 @@ def delete_membership_plan(plan_id: int, db: Session = Depends(get_db)):
 # Create a new subscription
 @app.post("/subscriptions/", response_model=schemas.Subscription)
 def create_subscription(
-        subscription: schemas.SubscriptionCreate,  # Explicitly declare the schema
-        db: Session = Depends(get_db)
-):
-    return crud.create_subscription(db, subscription)
+        subscription: schemas.SubscriptionCreate,
+        db: Session = Depends(get_db)):
+    try:
+        db_subscription = crud.create_subscription(db, subscription)
+        if db_subscription:
+            user = crud.get_user_by_id(db, db_subscription.user_id)
+            html_content = f"""
+               <html>
+               <body style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+                   <table style="width: 100%; background-color: #f4f4f4; padding: 10px; border-radius: 8px;">
+                       <tr>
+                           <td style="background-color: #1abc9c; padding: 15px; color: white; text-align: center; border-radius: 8px 8px 0 0;">
+                               <h2>Welcome to the Gym Membership!</h2>
+                           </td>
+                       </tr>
+                       <tr>
+                           <td style="padding: 20px; background-color: #fff; border-radius: 0 0 8px 8px;">
+                               <h3>Dear <strong>{user.name} {user.surname} ({user.username})</strong>,</h3>
+                               <p style="font-size: 16px;">Congratulations! You have successfully subscribed to our gym membership.</p>
+                               <p style="font-size: 16px;">We are excited to have you with us. Your subscription is now active, and we look forward to helping you achieve your fitness goals!</p>
+                               <hr style="border: 1px solid #ddd;">
+                               <p style="font-size: 14px; color: #555;">If you have any questions, feel free to contact us.</p>
+                               <p style="font-size: 14px; color: #95a5a6;">Best Regards,</p>
+                               <p style="font-size: 14px; color: #95a5a6;">The Gym Team</p>
+                           </td>
+                       </tr>
+                   </table>
+               </body>
+               </html>
+               """
+
+            # Send the email with the HTML content
+            send_email(
+                to_email=user.email,
+                subject="Gym Membership Subscription",
+                content=html_content  # Pass HTML content here
+            )
+        return db_subscription
+    except HTTPException as e:
+        raise e
+
+
+def send_email(to_email, subject, content):
+    sendgrid_api_key = SENDGRIDAPIKEY
+    message = Mail(
+        from_email='annlev@ktu.lt',
+        to_emails=to_email,
+        subject=subject,
+        html_content=content,
+    )
+
+    try:
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+    except Exception as e:
+        raise e
 
 
 # Get subscriptions for a specific user
@@ -341,8 +399,8 @@ def get_membership_status(subscription_id: int, db: Session = Depends(get_db)):
     return {"status": subscription.status}  # Return the subscription status
 
 
-#--------------------------------Workouts------------------------------------
 
+# --------------------------------Workouts------------------------------------
 @app.get("/workoutplans/", response_model=list[schemas.WorkoutPlan])
 def read_workout_plans(skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
                        current_user: models.User = Depends(get_current_user)):
@@ -418,7 +476,7 @@ def remove_exercise_from_workout_plan(workout_plan_id: int, exercise_id: int, db
     return {"message": "Exercise removed from workout plan"}
 
 
-#--------------------------------Exercises-----------------------------------
+# --------------------------------Exercises-----------------------------------
 @app.get("/exercises/", response_model=list[schemas.Exercise])
 async def read_exercises(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     exercises = crud.get_exercises(db, skip=skip, limit=limit)
