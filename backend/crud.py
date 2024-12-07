@@ -1,6 +1,4 @@
-
-from datetime import timedelta, time
-from typing import Any, List, Type, Optional
+from typing import Any, Optional, List
 
 from fastapi import HTTPException
 from sqlalchemy.exc import SQLAlchemyError
@@ -12,28 +10,160 @@ from passlib.context import CryptContext
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
-# User Management
 def create_user(db: Session, user: schemas.UserCreate):
     hashed_password = pwd_context.hash(user.password)
-    db_user = models.User(username=user.username,
-                          email=user.email,
-                          hashed_password=hashed_password,
-                          name=user.name,
-                          surname=user.surname,
-                          role=user.role)
+
+    user_data = {
+        "username": user.username,
+        "email": user.email,
+        "hashed_password": hashed_password,
+        "name": user.name,
+        "surname": user.surname,
+        "age": user.age,
+        "gender": user.gender,
+        "phone": user.phone,
+        "role": user.role,
+    }
+
+    if user.role == "member":
+        member_data = {
+            "weight": user.weight,
+            "height": user.height,
+            "membership_status": user.membership_status,
+        }
+        db_user = models.Member(**user_data, **member_data)
+    elif user.role == "trainer":
+        trainer_data = {
+            "description": user.description,
+            "experience": user.experience,
+            "specialization": user.specialization,
+            "rating": user.rating,
+            "RPH": user.RPH,
+            "certification": user.certification,
+            "photo": user.photo,
+        }
+        db_user = models.Trainer(**user_data, **trainer_data)
+    elif user.role == "admin":
+        db_user = models.Admin(**user_data)
+    else:
+        raise ValueError("Invalid role specified")
+
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return db_user
 
+    return schemas.UserResponse.model_validate(db_user)
 
 def get_user(db: Session, username: str):
+    # Retrieve the user from the database
     db_user = db.query(models.User).filter(models.User.username == username).first()
-    return db_user
+    # If user is not found, return None
+    if not db_user:
+        return None
+
+    # Create the common user data (which will be in all roles)
+    user_data = {
+        "id": db_user.id,
+        "username": db_user.username,
+        "hashed_password": db_user.hashed_password,
+        "name": db_user.name,
+        "surname": db_user.surname,
+        "age": db_user.age,
+        "gender": db_user.gender,
+        "email": db_user.email,
+        "phone": db_user.phone,
+        "role": db_user.role,
+    }
+
+    # Initialize the role-specific details
+    member_details = None
+    trainer_details = None
+
+    if db_user.role == "member":
+        # Fetch member-specific details
+        member_data = db.query(models.Member).filter(models.Member.username == username).first()
+        member_details = schemas.Member(
+            weight=member_data.weight,
+            height=member_data.height,
+            membership_status=member_data.membership_status,
+        )
+
+    elif db_user.role == "trainer":
+        # Fetch trainer-specific details
+        trainer_data = db.query(models.Trainer).filter(models.Trainer.username == username).first()
+        trainer_details = schemas.Trainer(
+            description=trainer_data.description,
+            experience=trainer_data.experience,
+            specialization=trainer_data.specialization,
+            rating=trainer_data.rating,
+            RPH=trainer_data.RPH,
+            certification=trainer_data.certification,
+            photo=trainer_data.photo,
+        )
+
+
+    # Construct the response, adding role-specific details as appropriate
+    return schemas.UserResponse(
+        **user_data,
+        member_details=member_details,
+        trainer_details=trainer_details,
+    )
 
 def get_user_by_id(db: Session, userid: int):
+    # Retrieve the user from the database
     db_user = db.query(models.User).filter(models.User.id == userid).first()
-    return db_user
+
+    # If user is not found, return None
+    if not db_user:
+        return None
+
+    # Create the common user data (which will be in all roles)
+    user_data = {
+        "id": db_user.id,
+        "username": db_user.username,
+        "hashed_password": db_user.hashed_password,
+        "name": db_user.name,
+        "surname": db_user.surname,
+        "age": db_user.age,
+        "gender": db_user.gender,
+        "email": db_user.email,
+        "phone": db_user.phone,
+        "role": db_user.role,
+    }
+
+    # Initialize the role-specific details
+    member_details = None
+    trainer_details = None
+
+    if db_user.role == "member":
+        # Fetch member-specific details
+        member_data = db.query(models.Member).filter(models.Member.id == userid).first()
+        member_details = schemas.Member(
+            weight=member_data.weight,
+            height=member_data.height,
+            membership_status=member_data.membership_status,
+        )
+
+    elif db_user.role == "trainer":
+        # Fetch trainer-specific details
+        trainer_data = db.query(models.Trainer).filter(models.Trainer.id == userid).first()
+        trainer_details = schemas.Trainer(
+            description=trainer_data.description,
+            experience=trainer_data.experience,
+            specialization=trainer_data.specialization,
+            rating=trainer_data.rating,
+            RPH=trainer_data.RPH,
+            certification=trainer_data.certification,
+            photo=trainer_data.photo,
+        )
+
+
+    # Construct the response, adding role-specific details as appropriate
+    return schemas.UserResponse(
+        **user_data,
+        member_details=member_details,
+        trainer_details=trainer_details,
+    )
 
 def get_user_id(db: Session, username: str) -> Any | None:
     db_user = db.query(models.User).filter(models.User.username == username).first()
@@ -43,21 +173,52 @@ def get_user_id(db: Session, username: str) -> Any | None:
 
 
 def update_user(db: Session, user_id: int, user_update: schemas.UserCreate):
+    # Fetch the user from the database
     db_user = db.query(models.User).filter(models.User.id == user_id).first()
 
     if not db_user:
-        return None
+        return None  # User not found
 
+    # Update common user fields
     db_user.username = user_update.username
     db_user.email = user_update.email
     db_user.hashed_password = pwd_context.hash(user_update.password)
     db_user.name = user_update.name
     db_user.surname = user_update.surname
+    db_user.age = user_update.age
+    db_user.gender = user_update.gender
+    db_user.phone = user_update.phone
     db_user.role = user_update.role
 
+    # Handle role-specific updates
+    if user_update.role == "member":
+        if isinstance(db_user, models.Member):
+            db_user.weight = user_update.weight
+            db_user.height = user_update.height
+            db_user.membership_status = user_update.membership_status
+        else:
+            raise ValueError("The user is not a member")
+    elif user_update.role == "trainer":
+        if isinstance(db_user, models.Trainer):
+            db_user.description = user_update.description
+            db_user.experience = user_update.experience
+            db_user.specialization = user_update.specialization
+            db_user.rating = user_update.rating
+            db_user.RPH = user_update.RPH
+            db_user.certification = user_update.certification
+            db_user.photo = user_update.photo
+        else:
+            raise ValueError("The user is not a trainer")
+    elif user_update.role == "admin":
+        if not isinstance(db_user, models.Admin):
+            raise ValueError("The user is not an admin")
+
+    # Commit changes to the database
     db.commit()
     db.refresh(db_user)
-    return db_user
+
+    # Return the updated user
+    return schemas.UserResponse.model_validate(db_user)
 
 
 def delete_user(db: Session, user_id: int):
@@ -111,24 +272,48 @@ def get_event(db: Session, event_id: int, user_id: int):
         ).first()
 
 
-def get_events(db: Session, user_id: int) -> list[models.Event]:
+def get_events(db: Session, user_id: int) -> List[schemas.Event]:
     # Fetch the user based on their ID
     user = db.query(models.User).filter(models.User.id == user_id).first()
 
     # Admins can view all events
     if user.role == "admin":
-        return db.query(models.Event).all()
+        events = db.query(models.Event).all()
 
     # Trainers can see events they created (public or private)
     elif user.role == "trainer":
-        return db.query(models.Event).filter(models.Event.creator_id == user_id).all()
+        events = db.query(models.Event).filter(models.Event.creator_id == user_id).all()
 
     # Members can see their own private events and all public events
     else:  # For gym members
-        return db.query(models.Event).filter(
+        events = db.query(models.Event).filter(
             (models.Event.creator_id == user_id) |  # Their own events
             (models.Event.event_type == "public")  # All public events
         ).all()
+
+    # Prepare a list of events with current participant count
+    event_data = []
+    for event in events:
+        # Count the bookings where the status is True
+        current_participants = len([booking for booking in event.bookings if booking.status])
+
+        event_info = schemas.Event(
+            id=event.id,
+            name=event.name,
+            description=event.description,
+            date=event.date,
+            time=event.time,
+            duration=event.duration,
+            event_type=event.event_type,
+            is_personal_training=event.is_personal_training,
+            max_participants=event.max_participants,
+            room_number=event.room_number,
+            creator_id=event.creator_id,
+            current_participants=current_participants  # Count the bookings where status is True
+        )
+        event_data.append(event_info)
+
+    return event_data
 
 
 def update_event(db: Session, event_id: int, event_update: schemas.EventCreate, user_id: int):
@@ -169,40 +354,152 @@ def delete_event(db: Session, event_id: int, user_id: int):
 
 # Booking Management
 def book_event(db: Session, event_id: int, user_id: int):
+    """
+    Books an event for a user, ensuring all constraints are met.
+    """
     event = db.query(models.Event).filter(models.Event.id == event_id).first()
 
     if not event:
         raise HTTPException(status_code=404, detail="Event not found")
 
-    if event.max_participants and len(event.bookings) >= event.max_participants:
-        raise HTTPException(status_code=400, detail="Event is fully booked")
+    if event.max_participants is not None:
+        participant_count = db.query(models.Booking).filter(models.Booking.event_id == event_id).count()
+        if participant_count >= event.max_participants:
+            raise HTTPException(status_code=400, detail="Event is fully booked")
 
-    # Create booking
-    db_booking = models.Booking(user_id=user_id, event_id=event_id)
+    existing_booking = db.query(models.Booking).filter(
+        models.Booking.event_id == event_id,
+        models.Booking.user_id == user_id
+    ).first()
+    if existing_booking:
+        raise HTTPException(status_code=400, detail="User has already booked this event")
+
+    db_booking = models.Booking(user_id=user_id, event_id=event_id, trainer_id=event.creator_id, status=False)
     db.add(db_booking)
     db.commit()
     db.refresh(db_booking)
 
     return db_booking
 
-
-def cancel_booking(db: Session, booking_id: int, user_id: int):
-    booking = db.query(models.Booking).filter(models.Booking.id == booking_id,
-                                              models.Booking.user_id == user_id).first()
+def update_booking_status(db: Session, booking_id: int):
+    """
+    Updates the status of a booking to confirm or unconfirm it.
+    """
+    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
 
     if not booking:
-        return None
+        raise HTTPException(status_code=404, detail="Booking not found")
 
+    booking.status = True
+    db.commit()
+    db.refresh(booking)
+
+    return booking
+
+
+def cancel_booking(db: Session, booking_id: int):
+    """
+    Cancels a booking made by a user.
+    """
+    booking = db.query(models.Booking).filter(models.Booking.id == booking_id).first()
+    if not booking:
+        return None
     db.delete(booking)
     db.commit()
     return True
 
 
+def get_all_bookings(db: Session, event_id: int = None, user_id: int = None):
+    """
+    Returns all bookings, optionally filtering by event_id, user_id, or trainer_id.
+    This function also includes related Event, User, and Trainer objects.
+    """
+    query = db.query(models.Booking).join(models.Event).join(models.User).join(models.Trainer)
+
+    if event_id:
+        query = query.filter(models.Booking.event_id == event_id)
+
+    if user_id:
+        query = query.filter(models.Booking.user_id == user_id)
+
+
+    bookings = query.all()
+
+    return bookings
+
 def get_users(db: Session):
+    # Query all users from the database
     users = db.query(models.User).all()
+
     if not users:
-        return []
-    return users
+        return []  # Return an empty list if no users are found
+
+    # Convert users to schema responses
+    user_responses = []
+    for user in users:
+        if isinstance(user, models.Member):
+            user_response = schemas.UserResponse.model_validate(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "name": user.name,
+                    "surname": user.surname,
+                    "age": user.age,
+                    "gender": user.gender,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "role": user.role,
+                    "member_details": {
+                        "weight": user.weight,
+                        "height": user.height,
+                        "membership_status": user.membership_status,
+                    },
+                }
+            )
+        elif isinstance(user, models.Trainer):
+            user_response = schemas.UserResponse.model_validate(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "name": user.name,
+                    "surname": user.surname,
+                    "age": user.age,
+                    "gender": user.gender,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "role": user.role,
+                    "trainer_details": {
+                        "description": user.description,
+                        "experience": user.experience,
+                        "specialization": user.specialization,
+                        "rating": user.rating,
+                        "RPH": user.RPH,
+                        "certification": user.certification,
+                        "photo": user.photo,
+                    },
+                }
+            )
+        elif isinstance(user, models.Admin):
+            user_response = schemas.UserResponse.model_validate(
+                {
+                    "id": user.id,
+                    "username": user.username,
+                    "name": user.name,
+                    "surname": user.surname,
+                    "age": user.age,
+                    "gender": user.gender,
+                    "email": user.email,
+                    "phone": user.phone,
+                    "role": user.role,
+                }
+            )
+        else:
+            raise ValueError(f"Unknown user role for user ID {user.id}")
+
+        user_responses.append(user_response)
+
+    return user_responses
+
 
 
 # Create a new membership plan

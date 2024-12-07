@@ -1,5 +1,7 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useContext, useEffect } from 'react';
 import { UserContext } from "../context/UserContext";
+import { useNotification } from "../context/NotificationContext";
+
 
 const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => {
   const [token, userRole] = useContext(UserContext);
@@ -7,26 +9,83 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
   const [description, setDescription] = useState(event ? event.description : '');
   const [time, setTime] = useState(event ? event.time : '');
   const [duration, setDuration] = useState(event ? event.duration : 30);
-  const [eventType, setEventType] = useState(event ? event.event_type : (userRole === 'member' ? 'private' : 'public'));
   const [isPersonalTraining, setIsPersonalTraining] = useState(event ? event.is_personal_training : false);
   const [maxParticipants, setMaxParticipants] = useState(event ? event.max_participants : 1);
   const [roomNumber, setRoomNumber] = useState(event ? event.room_number : '');
   const [trainerId, setTrainerId] = useState(event ? event.trainer_id : null);
+  const [trainers, setTrainers] = useState([]); // Store the list of trainers
   const [errorMessage, setErrorMessage] = useState('');
+  const { addNotification } = useNotification();
+
+  const [eventType, setEventType] = useState(() => {
+    if (event) return event.event_type;
+    if (userRole === 'member') return 'private';
+    if (userRole === 'trainer') return 'public';
+    return 'public';
+  });
+
+  useEffect(() => {
+    if (userRole !== 'trainer') {
+      fetch('http://localhost:8000/users', {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        }
+      })
+        .then(response => response.json())
+        .then(data => {
+          const trainerList = data.filter(user => user.role === 'trainer');
+          setTrainers(trainerList);
+          console.log(trainerList);
+        })
+        .catch(error => setErrorMessage(`Error fetching trainers: ${error.message}`));
+    }
+  }, [userRole, token]);
 
   const handleSave = async () => {
     // Validation
-    if (name === '' || time === ''  || eventType === '') {
-      setErrorMessage('Please fill in all required fields');
+    if (name === '') {
+      setErrorMessage('Event name is required');
       return;
     }
-    if(duration <= 15){
+
+    if (time === '') {
+      setErrorMessage('Event time is required');
+      return;
+    }
+    if (duration <= 15) {
       setErrorMessage('Please set duration more than 15 minutes');
       return;
     }
 
-    // Ensure 'member' cannot create public events
-    const finalEventType = userRole === 'member' ? 'private' : eventType;
+    const eventDate = new Date(selectedDate);
+    const eventTime = new Date(`${selectedDate}T${time}`);
+    const now = new Date();
+
+    if (eventDate < now.setHours(0, 0, 0, 0)) {
+      setErrorMessage('Event date cannot be in the past. Please select a future date.');
+      return;
+    }
+
+    if (eventTime <= now) {
+      setErrorMessage('Cannot create an event in the past. Please select a future date and time.');
+      return;
+    }
+
+    const eventEndTime = new Date(eventTime.getTime() + duration * 60000);
+    const endOfDay = new Date(eventDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    if (eventEndTime > endOfDay) {
+      setErrorMessage('Event duration exceeds the current day. Please choose a shorter duration.');
+      return;
+    }
+
+    // Enforce role-based event type restrictions
+    const finalEventType =
+      userRole === 'member' ? 'private' :
+      userRole === 'trainer' ? 'public' :
+      eventType; // Admin retains their selection
 
     const requestOptions = {
       method: event?.id ? 'PUT' : 'POST',
@@ -37,7 +96,7 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
       body: JSON.stringify({
         name,
         description,
-        date: selectedDate,  // Use the passed selectedDate
+        date: selectedDate,
         time,
         duration,
         event_type: finalEventType,
@@ -55,15 +114,17 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
     try {
       const response = await fetch(url, requestOptions);
       if (!response.ok) throw new Error(`Failed to ${event?.id ? 'update' : 'create'} event`);
-      handleClose();  // Close modal and refresh events
+      addNotification(`${event?.id ? 'Updated' : 'Created'} event`, "success");
+      handleClose(); // Close modal and refresh events
     } catch (error) {
-      setErrorMessage(`Error: ${error.message}`);
+      addNotification(`Error: ${error.message}`, "error");
     }
   };
 
   const handleDelete = () => {
     if (event?.id) {
       handleDeleteEvent(event.id); // Call the passed delete function with event id
+
       handleClose(); // Close the modal after deletion
     }
   };
@@ -73,12 +134,18 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
       <div className="modal-background" onClick={handleClose}></div>
       <div className="modal-card">
         <header className="modal-card-head">
-          <p className="modal-card-title">{event?.id ? 'Update Event' : 'Add Event'}</p>
+          <p className="modal-card-title">
+            {userRole === 'member'
+                ? (event?.id ? 'Update Private Event' : 'Add Private Event')
+                : userRole === 'trainer'
+                    ? (event?.id ? 'Update Public Event' : 'Add Public Event')
+                    : (event?.id ? 'Update Event' : 'Add Event')}
+          </p>
         </header>
         <section className="modal-card-body">
           <div className="field">
-            <label className="label">Event Name</label>
-            <div className="control">
+              <label className="label">Event Name<span style={{color: 'red'}}> (required)</span></label>
+              <div className="control">
               <input
                   type="text"
                   className="input"
@@ -103,49 +170,53 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
             </div>
           </div>
 
-          <div className="field">
-            <label className="label">Event Date</label>
-            <div className="control">
-              <input
-                  type="text"
-                  className="input"
-                  value={selectedDate} // Pre-filled selected date
-                  readOnly
-              />
-            </div>
-          </div>
+            <div className="field is-flex" style={{gap: '1rem', flexWrap: 'wrap'}}>
+                <div className="field" style={{flex: '1 1 45%'}}>
+                    <label className="label">Event Date</label>
+                    <div className="control">
+                        <input
+                            type="text"
+                            className="input"
+                            value={selectedDate} // Pre-filled selected date
+                            readOnly
+                        />
+                    </div>
+                </div>
 
-          <div className="field">
-            <label className="label">Time</label>
-            <div className="control">
-              <input
-                  type="time"
-                  className="input"
-                  value={time}
-                  onChange={(e) => setTime(e.target.value)}
-                  required
-              />
+                <div className="field" style={{flex: '1 1 45%'}}>
+                    <label className="label">
+                        Time <span style={{color: 'red'}}> (required)</span>
+                    </label>
+                    <div className="control">
+                        <input
+                            type="time"
+                            className="input"
+                            value={time}
+                            onChange={(e) => setTime(e.target.value)}
+                            required
+                        />
+                    </div>
+                </div>
             </div>
-          </div>
 
-          <div className="field">
-            <label className="label">Duration (minutes)</label>
-            <div className="control">
-              <input
-                  type="number"
-                  className="input"
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  placeholder="Enter duration (min. 15)"
-                  required
-              />
+            <div className="field">
+                <label className="label">Duration (minutes)</label>
+                <div className="control">
+                    <input
+                        type="number"
+                        className="input"
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        placeholder="Enter duration (min. 15)"
+                        required
+                    />
+                </div>
             </div>
-          </div>
 
-          {/* Event Type Selection: Only show for non-members */}
-          {userRole !== 'member' && (
-              <div className="field">
-                <label className="label">Event Type</label>
+            {/* Event Type Selection: Only show for non-members */}
+            {userRole === 'admin' && (
+                <div className="field">
+                    <label className="label">Event Type</label>
                 <div className="control">
                   <div className="select">
                     <select
@@ -190,52 +261,69 @@ const EventModal = ({ event, handleClose, selectedDate, handleDeleteEvent }) => 
                 </div>
               </>
           )}
-
-          <div className="field">
-            <label className="label">
-              Personal Training
-              <input
-                  type="checkbox"
-                  checked={isPersonalTraining}
-                  onChange={(e) => setIsPersonalTraining(e.target.checked)}
-              />
-            </label>
-          </div>
-
-          {isPersonalTraining && (
-              <div className="field">
-                <label className="label">Trainer ID</label>
-                <div className="control">
-                  <input
-                      type="number"
-                      className="input"
-                      value={trainerId}
-                      onChange={(e) => setTrainerId(e.target.value)}
-                      placeholder="Enter trainer ID"
-                  />
+          {eventType !== 'public' && (
+              <div className="field is-flex" style={{ gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div className="field" style={{ flex: 1 }}>
+                  <label className="label">Personal Training</label>
+                  <div className="control">
+                    <input
+                      type="checkbox"
+                      style={{ width: '20px', height: '20px' }}
+                      checked={isPersonalTraining}
+                      onChange={(e) => setIsPersonalTraining(e.target.checked)}
+                    />
+                  </div>
                 </div>
-              </div>
-          )}
 
-          {errorMessage && <p className="help is-danger">{errorMessage}</p>}
+                {userRole === 'member' && isPersonalTraining && (
+                  <div className="field" style={{ flex: 2 }}>
+                    <label className="label">Select Trainer</label>
+                    <div className="control">
+                      <div className="select">
+                        <select
+                          value={trainerId}
+                          onChange={(e) => setTrainerId(e.target.value)}
+                        >
+                          <option value="">Select a Trainer</option>
+                          {trainers.map((trainer) => (
+                            <option key={trainer.id} value={trainer.id}>
+                              {trainer.name} {trainer.surname}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          {errorMessage && (
+              <p className="help is-danger" style={{fontSize: '1.5rem'}}>
+                {errorMessage}
+              </p>
+          )}
         </section>
-        <footer className="modal-card-foot">
+        <footer className="modal-card-foot" style={{flexDirection: 'column', alignItems: 'stretch'}}>
           <button
               className="button is-primary"
               onClick={handleSave}
-              style={{marginRight: '10px'}} // Add margin to the right
           >
             Save Event
           </button>
-          {event?.id && (  // Show delete button only if it's an existing event
+          <br/>
+          {event?.id && (
+            <>
               <button className="button is-danger" onClick={handleDelete}>
                 Delete Event
               </button>
+              <div>
+                <br />
+              </div>
+            </>
           )}
           <button
               className="button"
               onClick={handleClose}
-              style={{marginLeft: '10px'}} // Add margin to the right
           >
             Cancel
           </button>

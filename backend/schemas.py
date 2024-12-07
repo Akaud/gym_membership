@@ -3,24 +3,58 @@ from pydantic import BaseModel, EmailStr, field_validator
 from datetime import date, time
 
 
-# User creation model (used for creating a user, includes password)
 class UserCreate(BaseModel):
     username: str
-    email: EmailStr
-    password: str
     name: str
     surname: str
-    role: str  # 'member', 'trainer', or 'admin'
+    age: int
+    gender: str
+    email: EmailStr
+    phone: Optional[str] = None
+    password: str
+    role: str
+
+    # Member-specific fields
+    weight: Optional[float] = None
+    height: Optional[int] = None
+    membership_status: Optional[str] = None
+
+    # Trainer-specific fields
+    description: Optional[str] = None
+    experience: Optional[int] = None
+    specialization: Optional[str] = None
+    rating: Optional[int] = None
+    RPH: Optional[int] = None  # Rate Per Hour
+    certification: Optional[str] = None
+    photo: Optional[str] = None
+
+class Member(BaseModel):
+    weight: Optional[float]
+    height: Optional[int]
+    membership_status: Optional[str]
+
+class Trainer(BaseModel):
+    description: Optional[str]
+    experience: Optional[int]
+    specialization: Optional[str]
+    rating: Optional[int]
+    RPH: Optional[int]  # Rate Per Hour
+    certification: Optional[str]
+    photo: Optional[str]
 
 
-# User response model (used for reading user data, excludes password)
-class User(BaseModel):
+class UserResponse(BaseModel):
     id: int
     username: str
-    email: EmailStr
     name: str
     surname: str
+    age: int
+    gender: str
+    email: EmailStr
+    phone: Optional[str]
     role: str
+    member_details: Optional[Member] = None
+    trainer_details: Optional[Trainer] = None
 
     class Config:
         from_attributes = True
@@ -69,24 +103,19 @@ class Event(BaseModel):
     room_number: Optional[str] = None  # For group classes
     creator_id: int  # User ID who created the event
     trainer_id: Optional[int] = None  # Trainer assigned for personal training
-    participants: List[User] = []  # List of participants (for public group events)
+    current_participants: int
 
     class Config:
         from_attributes = True
 
 
-# Booking creation model
-class BookingCreate(BaseModel):
-    event_id: int
 
-
-# Booking response model
 class Booking(BaseModel):
     id: int
     user_id: int
     event_id: int
-    user: User  # Include details about the user booking the event
-    event: Event  # Include details about the event being booked
+    trainer_id:int
+    status:bool
 
     class Config:
         from_attributes = True
@@ -148,7 +177,7 @@ class Exercise(ExerciseBase):
     id: int
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Association schema between Workout Plan and Exercise
 class WorkoutPlanExerciseBase(BaseModel):
@@ -164,7 +193,7 @@ class WorkoutPlanExercise(WorkoutPlanExerciseBase):
     exercise: Exercise  # Nested exercise details for each association
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 # Base schema for Workout Plan
 class WorkoutPlanBase(BaseModel):
@@ -182,4 +211,4 @@ class WorkoutPlan(WorkoutPlanBase):
     exercises: List[WorkoutPlanExercise] = []  # Now correctly referencing WorkoutPlanExercise objects
 
     class Config:
-        orm_mode = True
+        from_attributes = True

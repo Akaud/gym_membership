@@ -3,8 +3,7 @@ import { UserContext } from "../context/UserContext";
 import { useLocation } from 'react-router-dom';
 
 const Subscriptions = () => {
-    const [token, userRole,,] = useContext(UserContext);
-    const [userId, setUserId] = useState(2);
+    const [token, userRole,userName, userId] = useContext(UserContext);
     const [subscriptions, setSubscriptions] = useState([]);
     const [plans, setPlans] = useState([]);
     const [errorMessage, setErrorMessage] = useState('');
@@ -50,48 +49,42 @@ const Subscriptions = () => {
         };
 
         // Fetch user and subscriptions
-        const response1 = await fetch(`http://localhost:8000/verify-token/${token}`, requestOptions);
-        if (response1.ok) {
-            const data1 = await response1.json();
-            setUserId(data1.user_id);
 
-            // Fetch subscriptions
-            const response = await fetch(`http://localhost:8000/users/${data1.user_id}/subscriptions`, requestOptions);
-            if (!response.ok) {
-                throw new Error('Error fetching subscriptions');
-            }
-
-            const subscriptionsData = await response.json();
-
-            // Fetch membership plans to get durations
-            const plansResponse = await fetch('http://localhost:8000/membership-plans/', requestOptions);
-            if (!plansResponse.ok) {
-                throw new Error('Error fetching membership plans');
-            }
-
-            const plansData = await plansResponse.json();
-
-            // Update subscriptions with computed statuses
-            const updatedSubscriptions = subscriptionsData.map(subscription => {
-                const plan = plansData.find(plan => plan.id === subscription.membership_plan_id);
-                if (!plan) return subscription; // Skip if no matching plan found
-
-                const startDate = new Date(subscription.start_date);
-                const durationMonths = plan.duration; // Duration in months from the plan
-                const endDate = new Date(startDate);
-                endDate.setMonth(endDate.getMonth() + durationMonths);
-
-                const currentDate = new Date();
-
-                return {
-                    ...subscription,
-                    end_date: endDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
-                    status: currentDate > endDate ? 'expired' : 'active',
-                };
-            });
-
-            setSubscriptions(updatedSubscriptions);
+        const response = await fetch(`http://localhost:8000/users/${userId}/subscriptions`, requestOptions);
+        if (!response.ok) {
+            throw new Error('Error fetching subscriptions');
         }
+
+        const subscriptionsData = await response.json();
+
+        // Fetch membership plans to get durations
+        const plansResponse = await fetch('http://localhost:8000/membership-plans/', requestOptions);
+        if (!plansResponse.ok) {
+            throw new Error('Error fetching membership plans');
+        }
+
+        const plansData = await plansResponse.json();
+
+        // Update subscriptions with computed statuses
+        const updatedSubscriptions = subscriptionsData.map(subscription => {
+            const plan = plansData.find(plan => plan.id === subscription.membership_plan_id);
+            if (!plan) return subscription; // Skip if no matching plan found
+
+            const startDate = new Date(subscription.start_date);
+            const durationMonths = plan.duration; // Duration in months from the plan
+            const endDate = new Date(startDate);
+            endDate.setMonth(endDate.getMonth() + durationMonths);
+
+            const currentDate = new Date();
+
+            return {
+                ...subscription,
+                end_date: endDate.toISOString().split('T')[0], // Format as YYYY-MM-DD
+                status: currentDate > endDate ? 'expired' : 'active',
+            };
+        });
+        setSubscriptions(updatedSubscriptions);
+
     } catch (error) {
         setErrorMessage("Could not fetch subscriptions.");
     } finally {
