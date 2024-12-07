@@ -36,7 +36,21 @@ const Subscriptions = () => {
         }));
     }
 }, [selectedPlanId]);
-
+        const decodeToken = (token) => {
+        try {
+            const payloadBase64 = token.split(".")[1];
+            const decodedPayload = JSON.parse(atob(payloadBase64));
+            return {
+                userId: decodedPayload.id,
+                userName: decodedPayload.username,
+                userRole: decodedPayload.role,
+                exp: decodedPayload.exp
+            };
+        } catch (error) {
+            console.error("Failed to decode token:", error);
+            return null;
+        }
+    };
     const fetchSubscriptions = async () => {
     setLoading(true);
     try {
@@ -49,8 +63,8 @@ const Subscriptions = () => {
         };
 
         // Fetch user and subscriptions
-
-        const response = await fetch(`http://localhost:8000/users/${userId}/subscriptions`, requestOptions);
+        const decoded = decodeToken(token);
+        const response = await fetch(`http://localhost:8000/users/${decoded.userId}/subscriptions`, requestOptions);
         if (!response.ok) {
             throw new Error('Error fetching subscriptions');
         }
@@ -91,6 +105,7 @@ const Subscriptions = () => {
         setLoading(false);
     }
 };
+
 
     const fetchPlans = async () => {
         try {

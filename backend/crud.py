@@ -276,20 +276,10 @@ def get_events(db: Session, user_id: int) -> List[schemas.Event]:
     # Fetch the user based on their ID
     user = db.query(models.User).filter(models.User.id == user_id).first()
 
-    # Admins can view all events
-    if user.role == "admin":
-        events = db.query(models.Event).all()
-
-    # Trainers can see events they created (public or private)
-    elif user.role == "trainer":
-        events = db.query(models.Event).filter(models.Event.creator_id == user_id).all()
-
-    # Members can see their own private events and all public events
-    else:  # For gym members
-        events = db.query(models.Event).filter(
-            (models.Event.creator_id == user_id) |  # Their own events
-            (models.Event.event_type == "public")  # All public events
-        ).all()
+    events = db.query(models.Event).filter(
+        (models.Event.creator_id == user_id) |  # Their own events
+        (models.Event.event_type == "public")  # All public events
+    ).all()
 
     # Prepare a list of events with current participant count
     event_data = []
