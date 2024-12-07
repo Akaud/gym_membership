@@ -5,12 +5,14 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone, time
 from passlib.context import CryptContext
-from apscheduler.schedulers.background import BackgroundScheduler
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, List, Optional
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 import crud
@@ -19,9 +21,7 @@ import schemas
 
 app = FastAPI()
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
 
 origins = [
     "http://localhost:3000",
@@ -50,6 +50,7 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 SECRET_KEY = os.environ.get("SECRET_KEY")
 ALGORITHM = os.environ.get("ALGORITHM")
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+SENDGRIDAPIKEY = os.environ.get("SENDGRID_API_KEY")
 
 db_dependency = Annotated[Session, Depends(get_db)]
 
@@ -257,11 +258,60 @@ def create_subscription(
         subscription: schemas.SubscriptionCreate,
         db: Session = Depends(get_db)):
     try:
-        # Call the CRUD function to create the subscription
         db_subscription = crud.create_subscription(db, subscription)
+        if db_subscription:
+            user = crud.get_user_by_id(db, db_subscription.user_id)
+            html_content = f"""
+               <html>
+               <body style="font-family: Arial, sans-serif; color: #333; padding: 20px;">
+                   <table style="width: 100%; background-color: #f4f4f4; padding: 10px; border-radius: 8px;">
+                       <tr>
+                           <td style="background-color: #1abc9c; padding: 15px; color: white; text-align: center; border-radius: 8px 8px 0 0;">
+                               <h2>Welcome to the Gym Membership!</h2>
+                           </td>
+                       </tr>
+                       <tr>
+                           <td style="padding: 20px; background-color: #fff; border-radius: 0 0 8px 8px;">
+                               <h3>Dear <strong>{user.name} {user.surname} ({user.username})</strong>,</h3>
+                               <p style="font-size: 16px;">Congratulations! You have successfully subscribed to our gym membership.</p>
+                               <p style="font-size: 16px;">We are excited to have you with us. Your subscription is now active, and we look forward to helping you achieve your fitness goals!</p>
+                               <hr style="border: 1px solid #ddd;">
+                               <p style="font-size: 14px; color: #555;">If you have any questions, feel free to contact us.</p>
+                               <p style="font-size: 14px; color: #95a5a6;">Best Regards,</p>
+                               <p style="font-size: 14px; color: #95a5a6;">The Gym Team</p>
+                           </td>
+                       </tr>
+                   </table>
+               </body>
+               </html>
+               """
+
+            # Send the email with the HTML content
+            send_email(
+                to_email=user.email,
+                subject="Gym Membership Subscription",
+                content=html_content  # Pass HTML content here
+            )
         return db_subscription
     except HTTPException as e:
         raise e
+
+
+def send_email(to_email, subject, content):
+    sendgrid_api_key = SENDGRIDAPIKEY
+    message = Mail(
+        from_email='annlev@ktu.lt',
+        to_emails=to_email,
+        subject=subject,
+        html_content=content,
+    )
+
+    try:
+        sg = SendGridAPIClient(sendgrid_api_key)
+        response = sg.send(message)
+    except Exception as e:
+        raise e
+
 
 # Get subscriptions for a specific user
 @app.get("/users/{user_id}/subscriptions")
@@ -293,21 +343,25 @@ def get_membership_status(subscription_id: int, db: Session = Depends(get_db)):
 
     return {"status": subscription.status}  # Return the subscription status
 
-#--------------------------------Workouts------------------------------------
+
+# --------------------------------Workouts------------------------------------
 
 @app.get("/workoutplans/", response_model=list[schemas.WorkoutPlan])
-def read_workout_plans(skip: int = 0, limit: int = 100, db: Session = Depends(get_db), current_user: models.User = Depends(get_current_user)):
+def read_workout_plans(skip: int = 0, limit: int = 100, db: Session = Depends(get_db),
+                       current_user: models.User = Depends(get_current_user)):
     workout_plans = crud.get_workout_plans(db, user_id=current_user['user'].id, skip=skip, limit=limit)
     return workout_plans
 
+
 @app.post("/workoutplans/", response_model=schemas.WorkoutPlan)
 async def create_workout_plan(
-    workoutplan: schemas.WorkoutPlanCreate,
-    db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user)
+        workoutplan: schemas.WorkoutPlanCreate,
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
 ):
     db_workoutplan = crud.create_workout_plan(db=db, workoutplan=workoutplan, user_id=current_user['user'].id)
     return db_workoutplan
+
 
 @app.get("/workoutplans/{workout_plan_id}", response_model=schemas.WorkoutPlan)
 def read_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
@@ -316,25 +370,28 @@ def read_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Workout plan not found")
     return workout_plan
 
+
 @app.put("/workoutplans/{workout_plan_id}", response_model=schemas.WorkoutPlan)
-def update_workout_plan(workout_plan_id: int, name: str = None, start_time: str = None, end_time: str = None, duration: int = None, db: Session = Depends(get_db)):
+def update_workout_plan(workout_plan_id: int, name: str = None, start_time: str = None, end_time: str = None,
+                        duration: int = None, db: Session = Depends(get_db)):
     workout_plan = crud.update_workout_plan(db, workout_plan_id, name, start_time, end_time, duration)
     if workout_plan is None:
         raise HTTPException(status_code=404, detail="Workout plan not found")
     return workout_plan
 
 
-
 @app.post("/workoutplans/{workout_plan_id}/exercises/{exercise_id}", response_model=schemas.WorkoutPlanExercise)
 def add_exercise_to_workout_plan(
-    workout_plan_id: int,
-    exercise_id: int,
-    repetitions: Optional[int] = None,
-    sets: Optional[int] = None,
-    duration: Optional[int] = None,
-    db: Session = Depends(get_db)
+        workout_plan_id: int,
+        exercise_id: int,
+        repetitions: Optional[int] = None,
+        sets: Optional[int] = None,
+        duration: Optional[int] = None,
+        db: Session = Depends(get_db)
 ):
     return crud.add_exercise_to_workout_plan(db, workout_plan_id, exercise_id, repetitions, duration, sets)
+
+
 # Delete a workout plan
 @app.delete("/workoutplans/{workout_plan_id}", status_code=204)
 def delete_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
@@ -346,6 +403,7 @@ def delete_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return {"message": "Workout plan deleted"}
+
 
 # Remove an exercise from a workout plan
 @app.delete("/workoutplans/{workout_plan_id}/exercises/{exercise_id}", status_code=204)
@@ -363,18 +421,21 @@ def remove_exercise_from_workout_plan(workout_plan_id: int, exercise_id: int, db
     return {"message": "Exercise removed from workout plan"}
 
 
-#--------------------------------Exercises-----------------------------------
+# --------------------------------Exercises-----------------------------------
 @app.get("/exercises/", response_model=list[schemas.Exercise])
 async def read_exercises(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     exercises = crud.get_exercises(db, skip=skip, limit=limit)
     return exercises
 
+
 @app.post("/exercises/", response_model=schemas.Exercise)
 async def add_exercise(exercise: schemas.ExerciseCreate, db: Session = Depends(get_db)):
     return crud.create_exercise(db=db, exercise=exercise)
 
+
 @app.put("/exercises/{exercise_id}", response_model=schemas.Exercise)
-def update_exercise(exercise_id: int, name: str = None, description: str = None, duration: int = None, sets: int = None, reps: int = None, muscles: str = None, db: Session = Depends(get_db)):
+def update_exercise(exercise_id: int, name: str = None, description: str = None, duration: int = None, sets: int = None,
+                    reps: int = None, muscles: str = None, db: Session = Depends(get_db)):
     exercise = crud.update_exercise(db, exercise_id, name, description, duration, sets, reps, muscles)
     if exercise is None:
         raise HTTPException(status_code=404, detail="Exercise not found")
@@ -400,4 +461,3 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return exercise
-

@@ -31,6 +31,9 @@ def get_user(db: Session, username: str):
     db_user = db.query(models.User).filter(models.User.username == username).first()
     return db_user
 
+def get_user_by_id(db: Session, userid: int):
+    db_user = db.query(models.User).filter(models.User.id == userid).first()
+    return db_user
 
 def get_user_id(db: Session, username: str) -> Any | None:
     db_user = db.query(models.User).filter(models.User.username == username).first()
