@@ -305,62 +305,64 @@ const Schedule = () => {
                         onClick={() => handleUpdateEvent(event)}
                     >
                       <div className="event-name">{event.name}</div>
+                      <div className="event-location">{event.room_number}</div>
+
                       <p>
                         {`${format(parse(event.time, 'HH:mm:ss', new Date()), 'HH:mm')} - ${format(addMinutes(parse(event.time, 'HH:mm:ss', new Date()), event.duration), 'HH:mm')}`}
                       </p>
                       {event.event_type === 'public' && (
-                        <div className="participants">
-                          <span>{event.current_participants} / {event.max_participants}</span>
-                        </div>
+                          <div className="participants">
+                            <span>{event.current_participants} / {event.max_participants}</span>
+                          </div>
                       )}
                       {event.event_type === 'public' && (
-                      userRole !== 'trainer' && (
-                          <div>
-                              {/* Disable the "Book" button if the maximum participants have been reached */}
-                              {getUserBookingStatus(event.id) === "Book" && event.current_participants < event.max_participants && (
-                                  <button
-                                      className="button is-info mt-2"
-                                      onClick={(e) => {
+                          userRole !== 'trainer' && (
+                              <div>
+                                {/* Disable the "Book" button if the maximum participants have been reached */}
+                                {getUserBookingStatus(event.id) === "Book" && event.current_participants < event.max_participants && (
+                                    <button
+                                        className="button is-info mt-2"
+                                        onClick={(e) => {
                                           e.stopPropagation();
                                           handleAssignToEvent(event);
-                                      }}
-                                  >
+                                        }}
+                                    >
                                       Book
-                                  </button>
-                              )}
+                                    </button>
+                                )}
 
-                              {/* Show "Pending" button when the booking is in progress */}
-                              {getUserBookingStatus(event.id) === "Pending" && (
-                                  <button className="button is-warning mt-2" disabled>
+                                {/* Show "Pending" button when the booking is in progress */}
+                                {getUserBookingStatus(event.id) === "Pending" && (
+                                    <button className="button is-warning mt-2" disabled>
                                       Pending
-                                  </button>
-                              )}
+                                    </button>
+                                )}
 
-                              {/* Show "Accepted" button if the user has already booked */}
-                              {getUserBookingStatus(event.id) === "Accepted" && (
-                                  <div>
+                                {/* Show "Accepted" button if the user has already booked */}
+                                {getUserBookingStatus(event.id) === "Accepted" && (
+                                    <div>
                                       <strong><p>Accepted</p></strong>
                                       <button
                                           className="button is-danger mt-2"
                                           onClick={(e) => {
-                                              e.stopPropagation();
-                                              const booking = bookings.find(booking => booking.event_id === event.id && booking.user_id === userId);
-                                              handleCancelBooking(booking.id)
-                                              .then((response) => {
+                                            e.stopPropagation();
+                                            const booking = bookings.find(booking => booking.event_id === event.id && booking.user_id === userId);
+                                            handleCancelBooking(booking.id)
+                                                .then((response) => {
                                                   console.log("Booking cancelled successfully", response);
-                                              })
-                                              .catch((error) => {
+                                                })
+                                                .catch((error) => {
                                                   console.error("Error cancelling booking", error);
-                                              });
+                                                });
                                           }}
                                       >
-                                          Cancel
+                                        Cancel
                                       </button>
-                                  </div>
-                              )}
-                          </div>
-                      )
-                  )}
+                                    </div>
+                                )}
+                              </div>
+                          )
+                      )}
                     </div>
                 ))}
             </div>
