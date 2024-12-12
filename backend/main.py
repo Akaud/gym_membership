@@ -5,7 +5,7 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone, time
 from passlib.context import CryptContext
-from apscheduler.schedulers.background import BackgroundScheduler
+#from apscheduler.schedulers.background import BackgroundScheduler
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 from typing import Annotated, List, Optional
@@ -25,7 +25,7 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 origins = [
     "http://localhost:3000",
-    "https://yourfrontenddomain.com",
+    "https://quickchart.io"
 ]
 app.add_middleware(
     CORSMiddleware,
@@ -300,6 +300,7 @@ def read_workout_plans(skip: int = 0, limit: int = 100, db: Session = Depends(ge
     workout_plans = crud.get_workout_plans(db, user_id=current_user['user'].id, skip=skip, limit=limit)
     return workout_plans
 
+
 @app.post("/workoutplans/", response_model=schemas.WorkoutPlan)
 async def create_workout_plan(
     workoutplan: schemas.WorkoutPlanCreate,
@@ -317,8 +318,8 @@ def read_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
     return workout_plan
 
 @app.put("/workoutplans/{workout_plan_id}", response_model=schemas.WorkoutPlan)
-def update_workout_plan(workout_plan_id: int, name: str = None, start_time: str = None, end_time: str = None, duration: int = None, db: Session = Depends(get_db)):
-    workout_plan = crud.update_workout_plan(db, workout_plan_id, name, start_time, end_time, duration)
+def update_workout_plan(workout_plan_id: int, name: str, db: Session = Depends(get_db)):
+    workout_plan = crud.update_workout_plan(db, workout_plan_id, name)
     if workout_plan is None:
         raise HTTPException(status_code=404, detail="Workout plan not found")
     return workout_plan
@@ -329,12 +330,9 @@ def update_workout_plan(workout_plan_id: int, name: str = None, start_time: str 
 def add_exercise_to_workout_plan(
     workout_plan_id: int,
     exercise_id: int,
-    repetitions: Optional[int] = None,
-    sets: Optional[int] = None,
-    duration: Optional[int] = None,
     db: Session = Depends(get_db)
 ):
-    return crud.add_exercise_to_workout_plan(db, workout_plan_id, exercise_id, repetitions, duration, sets)
+    return crud.add_exercise_to_workout_plan(db, workout_plan_id, exercise_id)
 # Delete a workout plan
 @app.delete("/workoutplans/{workout_plan_id}", status_code=204)
 def delete_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
@@ -347,23 +345,27 @@ def delete_workout_plan(workout_plan_id: int, db: Session = Depends(get_db)):
 
     return {"message": "Workout plan deleted"}
 
-# Remove an exercise from a workout plan
-@app.delete("/workoutplans/{workout_plan_id}/exercises/{exercise_id}", status_code=204)
-def remove_exercise_from_workout_plan(workout_plan_id: int, exercise_id: int, db: Session = Depends(get_db)):
+
+@app.delete("/workoutplans/exercises/{workout_plan_exercise_id}", status_code=204)
+def remove_exercise_from_workout_plan(workout_plan_exercise_id: int, db: Session = Depends(get_db)):
     association = (
         db.query(models.Workout_Plan_Exercise)
-        .filter(models.Workout_Plan_Exercise.workout_plan_id == workout_plan_id,
-                models.Workout_Plan_Exercise.exercise_id == exercise_id)
+        .filter(models.Workout_Plan_Exercise.id == workout_plan_exercise_id)
         .first()
     )
     if not association:
         raise HTTPException(status_code=404, detail="Exercise not found in workout plan")
+
     db.delete(association)
     db.commit()
     return {"message": "Exercise removed from workout plan"}
 
 
+
 #--------------------------------Exercises-----------------------------------
+
+
+
 @app.get("/exercises/", response_model=list[schemas.Exercise])
 async def read_exercises(skip: int = 0, limit: int = 10, db: Session = Depends(get_db)):
     exercises = crud.get_exercises(db, skip=skip, limit=limit)
@@ -374,8 +376,8 @@ async def add_exercise(exercise: schemas.ExerciseCreate, db: Session = Depends(g
     return crud.create_exercise(db=db, exercise=exercise)
 
 @app.put("/exercises/{exercise_id}", response_model=schemas.Exercise)
-def update_exercise(exercise_id: int, name: str = None, description: str = None, duration: int = None, sets: int = None, reps: int = None, muscles: str = None, db: Session = Depends(get_db)):
-    exercise = crud.update_exercise(db, exercise_id, name, description, duration, sets, reps, muscles)
+def update_exercise(exercise_id: int, name: str = None, description: str = None, db: Session = Depends(get_db)):
+    exercise = crud.update_exercise(db, exercise_id, name, description)
     if exercise is None:
         raise HTTPException(status_code=404, detail="Exercise not found")
     return exercise
@@ -400,4 +402,156 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     db.commit()
 
     return exercise
+
+
+#-----------------------LOG ------------------------
+
+
+@app.post("/workout-logs/", response_model=schemas.WorkoutLogCreate)
+def create_workout_log(
+        workout_log: schemas.WorkoutLogCreate,
+        db: Session = Depends(get_db)
+):
+    # Check if the workout_plan_exercise_id exists in the workout_plan_exercises table
+    workout_plan_exercise = db.query(models.Workout_Plan_Exercise).filter(
+        models.Workout_Plan_Exercise.id == workout_log.workout_plan_exercise_id
+    ).first()
+
+    if not workout_plan_exercise:
+        raise HTTPException(status_code=404, detail="Workout plan exercise not found")
+
+    # Create the WorkoutLog instance
+    db_workout_log = models.WorkoutLog(
+        workout_plan_exercise_id=workout_log.workout_plan_exercise_id,
+        sets=workout_log.sets,
+        reps_per_set=workout_log.reps_per_set,
+        weight_used=workout_log.weight_used,
+        duration=workout_log.duration,
+        distance=workout_log.distance,
+        date=workout_log.date
+    )
+
+    # Add the new log to the database
+    return crud.create_workout_log(db=db, workout_log=db_workout_log)
+
+
+@app.get("/workout/logs", response_model=list[schemas.WorkoutLogBase])
+def get_user_logs(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    user_id = current_user['user'].id
+
+    # Query to get all workout logs for the user, including necessary fields
+    workout_logs = db.query(
+        models.WorkoutLog.workout_plan_exercise_id,  # Include the workout_plan_exercise_id
+        models.WorkoutLog.date,
+        models.WorkoutLog.sets,
+        models.WorkoutLog.reps_per_set,
+        models.WorkoutLog.weight_used,
+        models.WorkoutLog.duration,
+        models.WorkoutLog.distance
+    ).join(
+        models.Workout_Plan_Exercise, models.WorkoutLog.workout_plan_exercise_id == models.Workout_Plan_Exercise.id
+    ).join(
+        models.Workout_Plan, models.Workout_Plan_Exercise.workout_plan_id == models.Workout_Plan.id
+    ).filter(
+        models.Workout_Plan.user_id == user_id
+    ).all()
+
+    if not workout_logs:
+        raise HTTPException(status_code=404, detail="No workout logs found for the user")
+
+    # Returning the workout logs
+    return workout_logs
+
+
+@app.get("/user/logs/exercise-info", response_model=dict)
+def get_exercise_info_from_logs(
+        db: Session = Depends(get_db),
+        current_user: models.User = Depends(get_current_user)
+):
+    """
+    Retrieve unique exercise names from user logs and their associated attributes.
+
+    Returns:
+        A dictionary where keys are exercise names and values are lists of available attributes.
+    """
+    user_id = current_user['user'].id
+
+    # Query to get all workout logs for the user, joining necessary tables
+    workout_logs = db.query(
+        models.WorkoutLog,
+        models.Exercise.name
+    ).join(
+        models.Workout_Plan_Exercise, models.WorkoutLog.workout_plan_exercise_id == models.Workout_Plan_Exercise.id
+    ).join(
+        models.Workout_Plan, models.Workout_Plan_Exercise.workout_plan_id == models.Workout_Plan.id
+    ).join(
+        models.Exercise, models.Workout_Plan_Exercise.exercise_id == models.Exercise.id
+    ).filter(
+        models.Workout_Plan.user_id == user_id
+    ).all()
+
+    if not workout_logs:
+        raise HTTPException(status_code=404, detail="No workout logs found for the user")
+
+    exercise_info = {}
+
+    # Process logs to extract exercise names and their attributes
+    for log, exercise_name in workout_logs:
+        if exercise_name not in exercise_info:
+            exercise_info[exercise_name] = set()
+
+        # Determine available attributes for this log entry
+        if log.sets is not None:
+            exercise_info[exercise_name].add("sets")
+        if log.reps_per_set is not None:
+            exercise_info[exercise_name].add("reps_per_set")
+        if log.weight_used is not None:
+            exercise_info[exercise_name].add("weight_used")
+        if log.duration is not None:
+            exercise_info[exercise_name].add("duration")
+        if log.distance is not None:
+            exercise_info[exercise_name].add("distance")
+
+    # Convert sets to lists for JSON serialization
+    exercise_info = {key: list(value) for key, value in exercise_info.items()}
+
+    return exercise_info
+
+
+@app.get("/exercise/{exercise_name}/logs", response_model=list[schemas.WorkoutLogBase])
+def get_exercise_logs_for_user(
+    exercise_name: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    user_id = current_user['user'].id
+    # Query to get the exercise ID based on the name
+    exercise = db.query(models.Exercise).filter(models.Exercise.name == exercise_name).first()
+
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+
+    # Query to get the workout plans associated with the user
+    workout_plans = db.query(models.Workout_Plan).filter(models.Workout_Plan.user_id == user_id).all()
+
+    if not workout_plans:
+        raise HTTPException(status_code=404, detail="No workout plans found for the user")
+
+    # Query to get workout logs for the exercise and user, joining the necessary tables
+    workout_logs = db.query(models.WorkoutLog).join(
+        models.Workout_Plan_Exercise, models.WorkoutLog.workout_plan_exercise_id == models.Workout_Plan_Exercise.id
+    ).join(
+        models.Workout_Plan, models.Workout_Plan_Exercise.workout_plan_id == models.Workout_Plan.id
+    ).filter(
+        models.Workout_Plan.user_id == user_id,
+        models.Workout_Plan_Exercise.exercise_id == exercise.id
+    ).all()
+
+    if not workout_logs:
+        raise HTTPException(status_code=404, detail=f"No logs found for exercise {exercise_name} for user {user_id}")
+
+    return workout_logs
 

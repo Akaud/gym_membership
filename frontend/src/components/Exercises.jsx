@@ -6,10 +6,9 @@ const Exercises = () => {
     const [exercises, setExercises] = useState([]);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [duration, setDuration] = useState('');
-    const [sets, setSets] = useState('');
-    const [reps, setReps] = useState('');
-    const [muscles, setMuscles] = useState('');
+    const [editId, setEditId] = useState(null);  // Track which exercise is being edited
+    const [editName, setEditName] = useState('');
+    const [editDescription, setEditDescription] = useState('');
 
     // Fetch exercises on component mount
     useEffect(() => {
@@ -43,10 +42,6 @@ const Exercises = () => {
             const newExercise = {
                 name,
                 description,
-                duration: parseInt(duration),
-                sets: sets ? parseInt(sets) : null,
-                reps: reps ? parseInt(reps) : null,
-                muscles,
             };
 
             const response = await fetch('http://localhost:8000/exercises/', {
@@ -77,6 +72,11 @@ const Exercises = () => {
             return;
         }
 
+        const confirmed = window.confirm("Are you sure you want to delete this exercise?");
+        if (!confirmed) {
+            return; // If the user cancels, do nothing
+        }
+
         try {
             const response = await fetch(`http://localhost:8000/exercises/${exerciseId}`, {
                 method: 'DELETE',
@@ -95,13 +95,60 @@ const Exercises = () => {
         }
     };
 
+    // Function to start editing an exercise
+    const editExercise = (exercise) => {
+        setEditId(exercise.id);
+        setEditName(exercise.name);
+        setEditDescription(exercise.description);
+    };
+
+    // Function to update exercise (admin only)
+    const updateExercise = async (e) => {
+        e.preventDefault();
+
+        if (userRole !== 'admin') {
+            console.log("Only admins can update exercises.");
+            return;
+        }
+
+        try {
+            const updatedExercise = {
+                name: editName,
+                description: editDescription,
+            };
+
+            const response = await fetch(`http://localhost:8000/exercises/${editId}?name=${editName}&description=${editDescription}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify(updatedExercise),
+            });
+
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+
+            const updatedData = await response.json();
+            setExercises(exercises.map((exercise) =>
+                exercise.id === updatedData.id ? updatedData : exercise
+            ));
+
+            setEditId(null);  // Reset edit state
+        } catch (error) {
+            console.error("Error updating exercise:", error);
+        }
+    };
+
+    // Function to cancel editing
+    const cancelEdit = () => {
+        setEditId(null);  // Reset edit state
+    };
+
     const resetForm = () => {
         setName('');
         setDescription('');
-        setDuration('');
-        setSets('');
-        setReps('');
-        setMuscles('');
     };
 
     return (
@@ -126,34 +173,7 @@ const Exercises = () => {
                         value={description}
                         onChange={(e) => setDescription(e.target.value)}
                     />
-                    <input
-                        className="form-input"
-                        type="number"
-                        placeholder="Duration (minutes)"
-                        value={duration}
-                        onChange={(e) => setDuration(e.target.value)}
-                    />
-                    <input
-                        className="form-input"
-                        type="number"
-                        placeholder="Sets"
-                        value={sets}
-                        onChange={(e) => setSets(e.target.value)}
-                    />
-                    <input
-                        className="form-input"
-                        type="number"
-                        placeholder="Reps"
-                        value={reps}
-                        onChange={(e) => setReps(e.target.value)}
-                    />
-                    <input
-                        className="form-input"
-                        type="text"
-                        placeholder="Muscles worked"
-                        value={muscles}
-                        onChange={(e) => setMuscles(e.target.value)}
-                    />
+
                     <button className="button is-primary" type="submit">Add Exercise</button>
                 </form>
             )}
@@ -163,17 +183,43 @@ const Exercises = () => {
                 {exercises.map((exercise) => (
                     <li key={exercise.id} className="exercise-item">
                         <div className="exercise-card">
-                            <h3 className="exercise-name">{exercise.name}</h3>
-                            <p className="exercise-description">Description: {exercise.description}</p>
-                            <p className="exercise-detail">Duration: {exercise.duration} minutes</p>
-                            <p className="exercise-detail">Sets: {exercise.sets}</p>
-                            <p className="exercise-detail">Reps: {exercise.reps}</p>
-                            <p className="exercise-detail">Muscles worked: {exercise.muscles}</p>
-                            {/* Remove button, visible only to admins */}
-                            {userRole === 'admin' && (
-                                <button className="button is-danger" onClick={() => deleteExercise(exercise.id)}>
-                                    Delete
-                                </button>
+                            {/* Display the edit form if an exercise is being edited */}
+                            {editId === exercise.id ? (
+                                <form onSubmit={updateExercise}>
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        value={editName}
+                                        onChange={(e) => setEditName(e.target.value)}
+                                    />
+                                    <input
+                                        className="form-input"
+                                        type="text"
+                                        value={editDescription}
+                                        onChange={(e) => setEditDescription(e.target.value)}
+                                    />
+                                    <button className="button is-success" type="submit">Update</button>
+                                    <button className="button is-light" onClick={cancelEdit}>Cancel</button>
+                                </form>
+                            ) : (
+                                <>
+                                    <h3 className="exercise-name">{exercise.name}</h3>
+                                    <p className="exercise-description">Description: {exercise.description}</p>
+                                    <br />
+                                    {/* Edit button, visible only to admins */}
+                                    {userRole === 'admin' && (
+                                        <button className="button is-info" onClick={() => editExercise(exercise)}>
+                                            Edit
+                                        </button>
+                                    )}
+
+                                    {/* Remove button, visible only to admins */}
+                                    {userRole === 'admin' && (
+                                        <button className="button is-danger" onClick={() => deleteExercise(exercise.id)}>
+                                            Delete
+                                        </button>
+                                    )}
+                                </>
                             )}
                         </div>
                     </li>

@@ -136,10 +136,6 @@ class Subscription(SubscriptionBase):
 class ExerciseBase(BaseModel):
     name: str
     description: Optional[str] = None
-    duration: Optional[int] = None
-    sets: Optional[int] = None
-    reps: Optional[int] = None
-    muscles: Optional[str] = None
 
 class ExerciseCreate(ExerciseBase):
     pass
@@ -152,10 +148,9 @@ class Exercise(ExerciseBase):
 
 # Association schema between Workout Plan and Exercise
 class WorkoutPlanExerciseBase(BaseModel):
+    id: int
     workout_plan_id: int
     exercise_id: int
-    repetitions: Optional[int] = None
-    sets: Optional[int] = None
 
 class WorkoutPlanExerciseCreate(WorkoutPlanExerciseBase):
     pass
@@ -168,10 +163,9 @@ class WorkoutPlanExercise(WorkoutPlanExerciseBase):
 
 # Base schema for Workout Plan
 class WorkoutPlanBase(BaseModel):
+   # id: int
     name: str
-    start_time: Optional[time] = None
-    end_time: Optional[time] = None
-    duration: Optional[int] = None
+
 
 class WorkoutPlanCreate(WorkoutPlanBase):
     pass
@@ -180,6 +174,25 @@ class WorkoutPlanCreate(WorkoutPlanBase):
 class WorkoutPlan(WorkoutPlanBase):
     id: int
     exercises: List[WorkoutPlanExercise] = []  # Now correctly referencing WorkoutPlanExercise objects
+
+    class Config:
+        orm_mode = True
+
+# Schema for Workout Log
+class WorkoutLogBase(BaseModel):
+    workout_plan_exercise_id: int
+    date: date
+    sets: Optional[int] = None
+    reps_per_set: Optional[str] = None  # Store as a comma-separated string like "10,12,15"
+    weight_used: Optional[float] = None
+    duration: Optional[int] = None
+    distance: Optional[float] = None
+
+class WorkoutLogCreate(WorkoutLogBase):
+    pass
+
+class WorkoutLog(WorkoutLogBase):
+    id: int
 
     class Config:
         orm_mode = True
