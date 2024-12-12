@@ -544,7 +544,7 @@ def delete_membership_plan(db: Session, plan_id: int):
 from datetime import timedelta
 import calendar
 
-# CRUD function for creating the subscription
+
 def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
     try:
         # Fetch the membership plan
@@ -554,21 +554,26 @@ def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
         if not membership_plan:
             raise HTTPException(status_code=404, detail="Membership plan not found")
 
-        # Get start_date and duration from the subscription
+    except SQLAlchemyError as e:
+        # Handle any database-related errors
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    try:
+        # Calculate end_date based on the plan's duration more accurately
         start_date = subscription.start_date
         duration_months = membership_plan.duration
 
-        # Calculate the end_date based on start_date and duration
-        new_month = start_date.month + duration_months - 1  # Add the duration months
-        new_year = start_date.year + (new_month // 12)  # Adjust for year overflow
-        new_month = new_month % 12 + 1  # Ensure the month is in range 1-12
+        # Use calendar.monthrange to get the last day of the month
+        end_date = start_date.replace(day=1) + timedelta(
+            days=calendar.monthrange(start_date.year, (start_date.month + duration_months - 1) % 12)[1]
+        )
 
-        # Set the new year and month to the end date
-        # We set the day to the last valid day of the month after the adjustment
-        _, last_day = calendar.monthrange(new_year, new_month)  # Get last day of the month
-        end_date = start_date.replace(year=new_year, month=new_month, day=1) + timedelta(days=last_day - 1)
+    except ValueError as e:
+        # Handle any errors in date calculations
+        raise HTTPException(status_code=400, detail=f"Invalid date or duration: {str(e)}")
 
-        # Create the subscription record
+    try:
+        # Create the subscription
         db_subscription = models.Subscription(
             start_date=start_date,
             end_date=end_date,
@@ -577,19 +582,18 @@ def create_subscription(db: Session, subscription: schemas.SubscriptionCreate):
             user_id=subscription.user_id
         )
 
-        # Add to the database and commit
+        # Add the subscription to the database and commit
         db.add(db_subscription)
         db.commit()
         db.refresh(db_subscription)
 
-        return db_subscription
-
     except SQLAlchemyError as e:
-        db.rollback()  # Rollback in case of error
+        # Roll back if there's a problem during commit
+        db.rollback()
         raise HTTPException(status_code=500, detail=f"Database error while creating subscription: {str(e)}")
-    except ValueError as e:
-        # Handle invalid date values
-        raise HTTPException(status_code=400, detail=f"Invalid date or duration: {str(e)}")
+
+    return db_subscription
+
 
 # Get subscription for a user
 def get_subscriptions_for_user(db: Session, user_id: int):
@@ -634,10 +638,7 @@ def create_exercise(db: Session, exercise: schemas.ExerciseCreate):
     exercise = models.Exercise(
         name=exercise.name,
         description=exercise.description,
-        duration=exercise.duration,
-        sets=exercise.sets,
-        reps=exercise.reps,
-        muscles=exercise.muscles
+
     )
     db.add(exercise)
     db.commit()
@@ -648,22 +649,13 @@ def get_exercise(db: Session, exercise_id: int):
     return db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
 
 
-def update_exercise(db: Session, exercise_id: int, name: str = None, description: str = None, duration: int = None,
-                    sets: int = None, reps: int = None, muscles: str = None):
+def update_exercise(db: Session, exercise_id: int, name: str = None, description: str = None):
     exercise = db.query(models.Exercise).filter(models.Exercise.id == exercise_id).first()
     if exercise:
         if name is not None:
             exercise.name = name
         if description is not None:
             exercise.description = description
-        if duration is not None:
-            exercise.duration = duration
-        if sets is not None:
-            exercise.sets = sets
-        if reps is not None:
-            exercise.reps = reps
-        if muscles is not None:
-            exercise.muscles = muscles
 
         db.commit()
         db.refresh(exercise)
@@ -681,9 +673,6 @@ def delete_exercise(db: Session, exercise_id: int):
 def create_workout_plan(db: Session, workoutplan: schemas.WorkoutPlanCreate, user_id: int):
     workoutplan = models.Workout_Plan(
         name=workoutplan.name,
-        start_time=workoutplan.start_time,
-        end_time=workoutplan.end_time,
-        duration=workoutplan.duration,
         user_id=user_id
     )
     db.add(workoutplan)
@@ -707,18 +696,11 @@ def get_workout_plans(db: Session, user_id: int, skip: int = 0, limit: int = 100
     )
 
 
-def update_workout_plan(db: Session, workout_plan_id: int, name: str = None, start_time: str = None,
-                        end_time: str = None, duration: int = None):
+def update_workout_plan(db: Session, workout_plan_id: int, name: str):
     workout_plan = db.query(models.Workout_Plan).filter(models.Workout_Plan.id == workout_plan_id).first()
     if workout_plan:
         if name is not None:
             workout_plan.name = name
-        if start_time is not None:
-            workout_plan.start_time = start_time
-        if end_time is not None:
-            workout_plan.end_time = end_time
-        if duration is not None:
-            workout_plan.duration = duration
 
         db.commit()
         db.refresh(workout_plan)
@@ -739,16 +721,11 @@ def add_exercise_to_workout_plan(
     db: Session,
     workout_plan_id: int,
     exercise_id: int,
-    repetitions: Optional[int] = None,
-    duration: Optional[int] = None,
-    sets: Optional[int] = None
 ):
     association = models.Workout_Plan_Exercise(
         workout_plan_id=workout_plan_id,
         exercise_id=exercise_id,
-        repetitions=repetitions,  # Can be None
-        duration=duration,        # Can be None
-        sets=sets                 # Can be None
+
     )
     db.add(association)
     db.commit()
@@ -767,3 +744,8 @@ def remove_exercise_from_workout_plan(db: Session, workout_plan_id: int, exercis
         db.commit()
     return association
 
+def create_workout_log(db: Session, workout_log: models.WorkoutLog):
+    db.add(workout_log)
+    db.commit()
+    db.refresh(workout_log)
+    return workout_log
