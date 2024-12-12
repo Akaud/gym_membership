@@ -549,7 +549,7 @@ def get_user_logs(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    user_id = current_user['user'].id
+    user_id = current_user.id
 
     # Query to get all workout logs for the user, including necessary fields
     workout_logs = db.query(
@@ -586,7 +586,7 @@ def get_exercise_info_from_logs(
     Returns:
         A dictionary where keys are exercise names and values are lists of available attributes.
     """
-    user_id = current_user['user'].id
+    user_id = current_user.id
 
     # Query to get all workout logs for the user, joining necessary tables
     workout_logs = db.query(
@@ -636,7 +636,7 @@ def get_exercise_logs_for_user(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(get_current_user)
 ):
-    user_id = current_user['user'].id
+    user_id = current_user.id
     # Query to get the exercise ID based on the name
     exercise = db.query(models.Exercise).filter(models.Exercise.name == exercise_name).first()
 

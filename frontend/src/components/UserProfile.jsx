@@ -18,13 +18,14 @@ const UserProfile = () => {
     useEffect(() => {
         const fetchUserProfile = async () => {
             try {
-                const response = await fetch("http://localhost:8000/user/profile", {
-                    method: "GET",
+                const requestOptions = {
+                    method: 'GET',
                     headers: {
-                        "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`, // Include token for authentication
                     },
-                });
+                };
+                const response = await fetch(`http://localhost:8000/user/${username}`, requestOptions);
 
                 if (!response.ok) {
                     throw new Error("Failed to fetch user profile.");
@@ -165,9 +166,6 @@ const UserProfile = () => {
             return (
                 <div>
                     <h3 className="title is-3">Member Details</h3>
-                    <p><strong>Weight:</strong> {userProfile.member_details.weight} kg</p>
-                    <p><strong>Height:</strong> {userProfile.member_details.height} cm</p>
-                    <p><strong>Membership Status:</strong> {userProfile.member_details.membership_status}</p>
                 </div>
             );
         }
